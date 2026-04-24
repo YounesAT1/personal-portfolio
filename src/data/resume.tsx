@@ -126,7 +126,7 @@ export const DATA = {
       school: "OFPPT NTIC 2 Casablanca",
       href: "https://www.ofppt.ma/",
       degree: "Technicien Spécialisé Full Stack",
-      logoUrl: "/Ofppt.png",
+      logoUrl: "/OFPPT.png",
       start: "2022",
       end: "2024",
     },
