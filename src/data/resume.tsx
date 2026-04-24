@@ -126,7 +126,7 @@ export const DATA = {
       school: "OFPPT NTIC 2 Casablanca",
       href: "https://www.ofppt.ma/",
       degree: "Technicien Spécialisé Full Stack",
-      logoUrl: "/ofppt.png",
+      logoUrl: "/Ofppt.png",
       start: "2022",
       end: "2024",
     },
@@ -191,38 +191,38 @@ export const DATA = {
     {
       title: "CS50 — Introduction to Computer Science",
       issuer: "Harvard University",
-      logoUrl: "/harvard.png",
-      url: "https://certificates.cs50.io/55906636-ea66-4d18-abd8-05d8ef5b687c.pdf?size=letter"
+      logoUrl: "/Harvard.png",
+      url: "https://certificates.cs50.io/55906636-ea66-4d18-abd8-05d8ef5b687c.pdf?size=letter",
     },
     {
       title: "Microsoft Azure AI Essentials Professional Certificate",
       issuer: "Microsoft",
       logoUrl: "/microsoft.png",
-      url: "https://www.linkedin.com/learning/certificates/bf3394d400542f704bfd934354b340dbb7ab224fea40e0faac8af9fde2237f93"
+      url: "https://www.linkedin.com/learning/certificates/bf3394d400542f704bfd934354b340dbb7ab224fea40e0faac8af9fde2237f93",
     },
     {
       title: "Atlassian Agile Project Management Professional Certificate",
       issuer: "Atlassian",
       logoUrl: "/atlassian.png",
-      url: "https://www.linkedin.com/learning/certificates/a3dc4c7f90c157326d5ba3d6664ab63c7db9b05df42ae3be1ec2d6859a7d774c?trk=share_certificate"
+      url: "https://www.linkedin.com/learning/certificates/a3dc4c7f90c157326d5ba3d6664ab63c7db9b05df42ae3be1ec2d6859a7d774c?trk=share_certificate",
     },
     {
       title: "Scrum Fundamentals — The Basics",
       issuer: "LinkedIn Learning",
       logoUrl: "/linkedin-learning.png",
-      url: "https://www.linkedin.com/learning/certificates/db4cbddf21b699d5a440bdb403dbae9961986eb9532a55c00b2b77f1bf6403c7?trk=share_certificate"
+      url: "https://www.linkedin.com/learning/certificates/db4cbddf21b699d5a440bdb403dbae9961986eb9532a55c00b2b77f1bf6403c7?trk=share_certificate",
     },
     {
       title: "Learning Kubernetes",
       issuer: "LinkedIn Learning",
       logoUrl: "/linkedin-learning.png",
-      url: "https://www.linkedin.com/learning/certificates/6f6dcebaa8c5646d61b8af24c35bc7be2f298a340bd49cf757e347f24d2f5181?trk=share_certificate"
+      url: "https://www.linkedin.com/learning/certificates/6f6dcebaa8c5646d61b8af24c35bc7be2f298a340bd49cf757e347f24d2f5181?trk=share_certificate",
     },
     {
       title: "English Certificate — C1 Level",
       issuer: "EF International",
       logoUrl: "/ef.png",
-      url: "https://cert.efset.org/BEuzJV"
+      url: "https://cert.efset.org/BEuzJV",
     },
   ],
 
