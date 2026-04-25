@@ -183,6 +183,51 @@ export const DATA = {
       image: "/travelyLogo.svg",
       video: "",
     },
+
+    {
+      title: "EduManage — School Management System",
+      href: "",
+      dates: "2024",
+      active: true,
+      description:
+        "A full-stack school management system built with Laravel that supports multi-role authentication (student, professor, director, and super admin). The platform allows complete management of schools, users, groups, modules, options, and exams with role-based access control and relational database design.",
+      technologies: [
+        "Laravel",
+        "PHP",
+        "MySQL",
+        "Blade",
+        "Bootstrap",
+        "Eloquent ORM",
+        "MVC Architecture",
+      ],
+      links: [
+        {
+          type: "Source",
+          href: "https://github.com/YounesAT1/school-management",
+          icon: <Icons.github className="size-3" />,
+        },
+      ],
+      image: "/edumanage.png",
+      video: "",
+    },
+    {
+      title: "ERP System — Business Management Software",
+      href: "",
+      dates: "2025",
+      active: true,
+      description:
+        "A comprehensive ERP system designed to streamline business operations, including inventory management, sales tracking, and customer relationship management. Built with Next.js, TypeScript, MySQL. it features a modular architecture, role-based access control, and an intuitive user interface for efficient business process management.",
+      technologies: [
+        "Next.js",
+        "TypeScript",
+        "TailwindCSS",
+        "MySQL",
+        "Prisma ORM",
+      ],
+      links: [],
+      image: "/erp.png",
+      video: "",
+    },
   ],
 
   hackathons: [],
