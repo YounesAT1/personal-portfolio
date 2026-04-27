@@ -44,7 +44,7 @@ export default function WorkSection() {
       <Accordion
         type="single"
         collapsible
-        className="w-full grid gap-6 max-w-2xl mx-auto"
+        className="w-full grid gap-6 max-w-2xl mx-auto mt-6"
       >
         {DATA.work.map((work) => (
           <AccordionItem
