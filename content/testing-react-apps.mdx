@@ -2,35 +2,763 @@
 title: "Testing React Applications: A Practical Guide"
 publishedAt: "2024-12-14"
 updatedAt: "2024-12-14"
-author: "John Doe"
-summary: "From unit tests to E2E—learn how to build confidence in your React applications with comprehensive testing."
+author: "YOUNES AIT-TALB"
+summary: "From unit tests to E2E — a deep, practical guide to building a test suite that gives you genuine confidence in your React apps, with real examples covering React Testing Library, Vitest, MSW, and Playwright."
 image: "https://images.unsplash.com/photo-1516116216624-53e697fedbea?w=800&h=192&fit=crop"
 ---
 
 # Testing React Applications: A Practical Guide
 
-Tests are your safety net — they let you refactor with confidence and ship changes without fear. The goal is not “as many tests as possible”; it’s <mark>confidence in the critical paths</mark>.
+Tests are your safety net — they let you refactor with confidence and ship changes without fear. But a poorly designed test suite can become a burden heavier than no tests at all: slow, fragile, full of false negatives that cry wolf until your team starts ignoring them.
 
-If your test suite feels slow or fragile, it usually means you’re testing the wrong thing. In practice, you can ignore a lot of “perfect coverage” advice and focus on a few high-signal habits.
+The goal is not "as many tests as possible" or even "100% coverage." Coverage is a proxy metric that gets gamed easily — you can cover every line and still miss the bugs that actually matter. The real goal is <mark>**confidence in the critical paths**</mark>: the flows your users actually take, the logic your business actually depends on.
 
-## What to test (a simple rule)
+This guide is a practical walkthrough of testing React apps at every layer — unit, integration, and end-to-end — with real examples, honest trade-offs, and the habits that consistently separate a useful test suite from a painful one.
 
-- **Unit tests**: small, fast checks for logic and pure functions.
-- **Integration tests**: components + data + user flows (most value per test).
-- **E2E tests**: a few happy-path checks across the whole app.
+---
 
-## High-signal testing habits
+## The Testing Trophy (Not the Pyramid)
 
-- Prefer user-facing assertions (what the user sees/does).
-- Use accessible queries first (roles, labels).
-- Mock at the boundary (network) instead of mocking implementation details.
+You've probably seen the Testing Pyramid — lots of unit tests at the bottom, fewer integration tests, a handful of E2E tests at the top. It's a reasonable heuristic, but it leads many teams to write hundreds of unit tests for implementation details that change constantly, while under-investing in integration tests that actually reflect how users use the app.
 
-## Things to avoid
+Kent C. Dodds' **Testing Trophy** is a better mental model for React:
 
-- ~~Testing internal component state~~ when behavior is what matters.
-- ~~Sprinkling test IDs everywhere~~ as a first choice.
-- Overusing snapshots that fail for harmless UI changes.
+```
+        /‾‾‾‾‾‾‾‾‾‾‾\
+       /    E2E       \       ← A few critical happy paths
+      /‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\
+     / Integration tests \    ← The bulk of your suite
+    /‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\
+   /    Unit tests         \  ← Pure functions, complex logic
+  /‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\
+ /   Static analysis         \ ← TypeScript, ESLint (always on)
+```
 
-## Wrap-up
+The insight is that **integration tests give you the most confidence per line of test code**. They test a component with its real dependencies (data fetching, state, child components) the way a user actually interacts with it — without the brittleness of wiring together a real browser and database.
 
-Start small: one integration test for your most important flow, then add unit tests for tricky logic. Over time, your tests become living documentation that helps you move faster.
+This doesn't mean skip unit tests. Pure functions, validation logic, custom hooks, and complex business rules all deserve focused unit tests. It means don't substitute unit tests _for_ integration tests and call it done.
+
+---
+
+## The Toolchain
+
+Before writing a single test, choose a stack that won't fight you:
+
+| Tool                          | Purpose           | Why this one                                                   |
+| ----------------------------- | ----------------- | -------------------------------------------------------------- |
+| **Vitest**                    | Test runner       | Native ESM, instant HMR, identical Jest API — fast             |
+| **React Testing Library**     | Component testing | Forces user-centric assertions, no implementation leakage      |
+| **MSW (Mock Service Worker)** | API mocking       | Intercepts at the network level, works in browser and Node     |
+| **Playwright**                | E2E testing       | Cross-browser, fast, excellent DX, first-class TypeScript      |
+| **jest-axe**                  | Accessibility     | Catches programmatic a11y violations in unit/integration tests |
+
+```bash
+# Install the full stack
+npm install --save-dev vitest @vitest/coverage-v8 jsdom
+npm install --save-dev @testing-library/react @testing-library/user-event @testing-library/jest-dom
+npm install --save-dev msw
+npm install --save-dev playwright @playwright/test
+npm install --save-dev jest-axe
+```
+
+```typescript title="vitest.config.ts"
+import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: ["./src/test/setup.ts"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "lcov"],
+      exclude: ["node_modules", "src/test"],
+    },
+  },
+});
+```
+
+```typescript title="src/test/setup.ts"
+import "@testing-library/jest-dom";
+import { server } from "./mocks/server";
+
+// Start MSW before all tests, reset handlers between tests
+beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+```
+
+---
+
+## Layer 1: Unit Tests — Logic in Isolation
+
+Unit tests shine when the thing you're testing has no dependencies on React or the DOM — pure functions, utility helpers, validation logic, formatters, reducers, and custom hooks.
+
+The key discipline: test the _output_ given an _input_, not the implementation. If you find yourself testing internal variables or calling private methods, you're testing the wrong thing.
+
+### Pure Functions
+
+```typescript title="lib/price.ts"
+export function formatPrice(cents: number, currency = "USD"): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+  }).format(cents / 100);
+}
+
+export function applyDiscount(
+  priceCents: number,
+  discountPercent: number,
+): number {
+  if (discountPercent < 0 || discountPercent > 100) {
+    throw new RangeError("Discount must be between 0 and 100");
+  }
+  return Math.round(priceCents * (1 - discountPercent / 100));
+}
+```
+
+```typescript title="lib/price.test.ts"
+import { describe, it, expect } from "vitest";
+import { formatPrice, applyDiscount } from "./price";
+
+describe("formatPrice", () => {
+  it("formats cents as a USD currency string", () => {
+    expect(formatPrice(1999)).toBe("$19.99");
+    expect(formatPrice(100000)).toBe("$1,000.00");
+    expect(formatPrice(0)).toBe("$0.00");
+  });
+
+  it("respects the currency argument", () => {
+    expect(formatPrice(1999, "EUR")).toBe("€19.99");
+  });
+});
+
+describe("applyDiscount", () => {
+  it("reduces the price by the given percentage", () => {
+    expect(applyDiscount(10000, 20)).toBe(8000); // 20% off $100 = $80
+    expect(applyDiscount(10000, 0)).toBe(10000); // 0% off = no change
+    expect(applyDiscount(10000, 100)).toBe(0); // 100% off = free
+  });
+
+  it("rounds to the nearest cent", () => {
+    expect(applyDiscount(999, 10)).toBe(899); // $9.99 - 10% = $8.99
+  });
+
+  it("throws for out-of-range discount values", () => {
+    expect(() => applyDiscount(1000, -1)).toThrow(RangeError);
+    expect(() => applyDiscount(1000, 101)).toThrow(RangeError);
+  });
+});
+```
+
+### Custom Hooks
+
+Use `renderHook` from React Testing Library to test hooks in isolation, with full React lifecycle support:
+
+```typescript title="hooks/useCounter.ts"
+import { useState, useCallback } from "react";
+
+interface UseCounterOptions {
+  initialValue?: number;
+  min?: number;
+  max?: number;
+}
+
+export function useCounter({
+  initialValue = 0,
+  min = -Infinity,
+  max = Infinity,
+}: UseCounterOptions = {}) {
+  const [count, setCount] = useState(initialValue);
+
+  const increment = useCallback(
+    () => setCount((c) => Math.min(c + 1, max)),
+    [max],
+  );
+
+  const decrement = useCallback(
+    () => setCount((c) => Math.max(c - 1, min)),
+    [min],
+  );
+
+  const reset = useCallback(() => setCount(initialValue), [initialValue]);
+
+  return { count, increment, decrement, reset };
+}
+```
+
+```typescript title="hooks/useCounter.test.ts"
+import { renderHook, act } from "@testing-library/react";
+import { useCounter } from "./useCounter";
+
+describe("useCounter", () => {
+  it("initializes with the given value", () => {
+    const { result } = renderHook(() => useCounter({ initialValue: 5 }));
+    expect(result.current.count).toBe(5);
+  });
+
+  it("increments and decrements correctly", () => {
+    const { result } = renderHook(() => useCounter());
+    act(() => result.current.increment());
+    expect(result.current.count).toBe(1);
+    act(() => result.current.decrement());
+    expect(result.current.count).toBe(0);
+  });
+
+  it("does not exceed the max boundary", () => {
+    const { result } = renderHook(() =>
+      useCounter({ initialValue: 9, max: 10 }),
+    );
+    act(() => result.current.increment());
+    act(() => result.current.increment()); // should be clamped
+    expect(result.current.count).toBe(10);
+  });
+
+  it("does not go below the min boundary", () => {
+    const { result } = renderHook(() =>
+      useCounter({ initialValue: 1, min: 0 }),
+    );
+    act(() => result.current.decrement());
+    act(() => result.current.decrement()); // should be clamped
+    expect(result.current.count).toBe(0);
+  });
+
+  it("resets to the initial value", () => {
+    const { result } = renderHook(() => useCounter({ initialValue: 5 }));
+    act(() => result.current.increment());
+    act(() => result.current.reset());
+    expect(result.current.count).toBe(5);
+  });
+});
+```
+
+---
+
+## Layer 2: Integration Tests — The Core of Your Suite
+
+Integration tests are where you get the most value. You render a real component (or a small tree of components), interact with it the way a user would, and assert on what the user sees — not on internal state or implementation details.
+
+The golden rule of React Testing Library:
+
+> _"The more your tests resemble the way your software is used, the more confidence they can give you."_
+
+### Querying Like a User
+
+RTL provides a hierarchy of query methods. Reach for them in this order:
+
+```typescript
+// 1. By role — the most accessible, mirrors how screen readers work
+screen.getByRole("button", { name: /submit/i });
+screen.getByRole("textbox", { name: /email/i });
+screen.getByRole("heading", { name: /sign in/i });
+
+// 2. By label text — for form elements associated with a label
+screen.getByLabelText(/password/i);
+
+// 3. By placeholder text — when a label isn't present
+screen.getByPlaceholderText(/search products/i);
+
+// 4. By display text — for non-interactive elements
+screen.getByText(/welcome back/i);
+
+// 5. By alt text — for images
+screen.getByAltText(/company logo/i);
+
+// 6. By test ID — last resort only, when nothing else works
+screen.getByTestId("custom-datepicker");
+```
+
+Prefer `getBy` (throws if not found) for elements that must be present, `queryBy` (returns null) for elements that may be absent, and `findBy` (returns a promise) for elements that appear asynchronously.
+
+### A Real Integration Test
+
+Here's a login form — the kind of component that's worth investing in testing properly:
+
+```tsx title="components/LoginForm.tsx"
+"use client";
+
+import { useState } from "react";
+import { signIn } from "@/lib/auth";
+
+interface LoginFormProps {
+  onSuccess: (user: { name: string }) => void;
+}
+
+export function LoginForm({ onSuccess }: LoginFormProps) {
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const data = new FormData(e.currentTarget);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const user = await signIn({
+        email: data.get("email") as string,
+        password: data.get("password") as string,
+      });
+      onSuccess(user);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sign in failed");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} aria-label="Sign in">
+      <h1>Sign in</h1>
+
+      {error && <p role="alert">{error}</p>}
+
+      <label htmlFor="email">Email</label>
+      <input id="email" name="email" type="email" required />
+
+      <label htmlFor="password">Password</label>
+      <input id="password" name="password" type="password" required />
+
+      <button type="submit" disabled={isLoading}>
+        {isLoading ? "Signing in…" : "Sign in"}
+      </button>
+    </form>
+  );
+}
+```
+
+```typescript title="components/LoginForm.test.tsx"
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
+import { server } from '@/test/mocks/server';
+import { LoginForm } from './LoginForm';
+
+const mockOnSuccess = vi.fn();
+
+function setup() {
+  const user = userEvent.setup();
+  render(<LoginForm onSuccess={mockOnSuccess} />);
+  return {
+    user,
+    emailInput: screen.getByLabelText(/email/i),
+    passwordInput: screen.getByLabelText(/password/i),
+    submitButton: screen.getByRole('button', { name: /sign in/i }),
+  };
+}
+
+describe('LoginForm', () => {
+  beforeEach(() => {
+    mockOnSuccess.mockClear();
+  });
+
+  it('renders the form with all required fields', () => {
+    setup();
+    expect(screen.getByRole('heading', { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
+  });
+
+  it('submits the form and calls onSuccess with the returned user', async () => {
+    // Override the default MSW handler for this specific test
+    server.use(
+      http.post('/api/auth/signin', () =>
+        HttpResponse.json({ name: 'Younes' })
+      )
+    );
+
+    const { user, emailInput, passwordInput, submitButton } = setup();
+
+    await user.type(emailInput, 'younes@example.com');
+    await user.type(passwordInput, 'correctpassword');
+    await user.click(submitButton);
+
+    await waitFor(() => {
+      expect(mockOnSuccess).toHaveBeenCalledWith({ name: 'Younes' });
+    });
+  });
+
+  it('shows a loading state while the request is in flight', async () => {
+    // Delay the response to test the loading state
+    server.use(
+      http.post('/api/auth/signin', async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return HttpResponse.json({ name: 'Younes' });
+      })
+    );
+
+    const { user, emailInput, passwordInput, submitButton } = setup();
+
+    await user.type(emailInput, 'younes@example.com');
+    await user.type(passwordInput, 'correctpassword');
+    await user.click(submitButton);
+
+    // Loading state should appear immediately
+    expect(screen.getByRole('button', { name: /signing in/i })).toBeDisabled();
+
+    // After resolution, button text should revert
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /sign in/i })).not.toBeDisabled();
+    });
+  });
+
+  it('displays an error message when credentials are wrong', async () => {
+    server.use(
+      http.post('/api/auth/signin', () =>
+        HttpResponse.json(
+          { message: 'Invalid email or password' },
+          { status: 401 }
+        )
+      )
+    );
+
+    const { user, emailInput, passwordInput, submitButton } = setup();
+
+    await user.type(emailInput, 'younes@example.com');
+    await user.type(passwordInput, 'wrongpassword');
+    await user.click(submitButton);
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        /invalid email or password/i
+      );
+    });
+
+    // Button should re-enable after failure
+    expect(submitButton).not.toBeDisabled();
+  });
+
+  it('clears the error when the user starts typing again', async () => {
+    server.use(
+      http.post('/api/auth/signin', () =>
+        HttpResponse.json({ message: 'Invalid email or password' }, { status: 401 })
+      )
+    );
+
+    const { user, emailInput, passwordInput, submitButton } = setup();
+
+    await user.type(emailInput, 'younes@example.com');
+    await user.type(passwordInput, 'wrong');
+    await user.click(submitButton);
+
+    await screen.findByRole('alert');
+
+    // Typing again should clear the error
+    await user.type(passwordInput, 'moretypes');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});
+```
+
+Notice what this test does _not_ do: it doesn't import or mock `signIn` directly, doesn't assert on React state, and doesn't reach into the component's internals. It behaves exactly like a user would — type, click, observe — and MSW handles the network layer.
+
+### Mocking the Network with MSW
+
+MSW intercepts `fetch` and `XMLHttpRequest` at the network level, not at the module level. This means your components use their real data-fetching code — only the responses are controlled.
+
+```typescript title="src/test/mocks/handlers.ts"
+import { http, HttpResponse } from "msw";
+
+export const handlers = [
+  // Default handlers — the "happy path" for every endpoint
+  http.post("/api/auth/signin", () =>
+    HttpResponse.json({
+      id: "1",
+      name: "Test User",
+      email: "test@example.com",
+    }),
+  ),
+
+  http.get("/api/products", () =>
+    HttpResponse.json({
+      data: [
+        { id: "p1", name: "Widget A", price: 1999 },
+        { id: "p2", name: "Widget B", price: 2999 },
+      ],
+      pagination: { page: 1, total: 2 },
+    }),
+  ),
+
+  http.get("/api/products/:id", ({ params }) =>
+    HttpResponse.json({ id: params.id, name: "Widget A", price: 1999 }),
+  ),
+
+  http.delete(
+    "/api/products/:id",
+    () => new HttpResponse(null, { status: 204 }),
+  ),
+];
+```
+
+```typescript title="src/test/mocks/server.ts"
+import { setupServer } from "msw/node";
+import { handlers } from "./handlers";
+
+export const server = setupServer(...handlers);
+```
+
+Default handlers cover the happy path. Override them per test for error states, edge cases, or loading scenarios — then they automatically reset between tests thanks to `server.resetHandlers()` in your setup file.
+
+---
+
+## Layer 3: Accessibility Testing
+
+Accessibility tests catch the class of bugs that cause real users — particularly those using screen readers, keyboard navigation, or high-contrast displays — to be blocked from using your app. They're cheap to run and have zero false-positive rate for real violations.
+
+```typescript title="components/LoginForm.a11y.test.tsx"
+import { render } from '@testing-library/react';
+import { axe, toHaveNoViolations } from 'jest-axe';
+import { LoginForm } from './LoginForm';
+
+expect.extend(toHaveNoViolations);
+
+describe('LoginForm accessibility', () => {
+  it('has no detectable accessibility violations', async () => {
+    const { container } = render(
+      <LoginForm onSuccess={() => {}} />
+    );
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+});
+```
+
+`axe` catches issues like: missing form labels, insufficient color contrast, images without alt text, interactive elements without accessible names, invalid ARIA roles, and missing landmark regions. It catches around 30% of all accessibility issues automatically — the rest require manual testing with a screen reader, but 30% for free is worth having.
+
+---
+
+## Layer 4: End-to-End Tests with Playwright
+
+E2E tests run your actual application in a real browser. They give you the highest fidelity — if a test passes, a real user would succeed — but they're also the most expensive to run and maintain. Keep the suite small and focused on the paths that matter most.
+
+**What to E2E test:**
+
+- Authentication flow (sign up, sign in, sign out)
+- The single most important user journey (checkout, onboarding, core feature)
+- Critical payment or data-submission flows
+- Cross-browser behavior for anything that's broken before in a specific browser
+
+**What not to E2E test:**
+
+- Everything already covered by integration tests
+- Error states that are easier to trigger via MSW in integration tests
+- Styling or visual details (use visual regression testing for those instead)
+
+```typescript title="e2e/auth.spec.ts"
+import { test, expect } from "@playwright/test";
+
+test.describe("Authentication", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/sign-in");
+  });
+
+  test("user can sign in with valid credentials", async ({ page }) => {
+    await page.getByLabel("Email").fill("younes@example.com");
+    await page.getByLabel("Password").fill("correctpassword");
+    await page.getByRole("button", { name: /sign in/i }).click();
+
+    // Should redirect to the dashboard after successful sign-in
+    await expect(page).toHaveURL("/dashboard");
+    await expect(
+      page.getByRole("heading", { name: /welcome back/i }),
+    ).toBeVisible();
+  });
+
+  test("shows an error with invalid credentials", async ({ page }) => {
+    await page.getByLabel("Email").fill("younes@example.com");
+    await page.getByLabel("Password").fill("wrongpassword");
+    await page.getByRole("button", { name: /sign in/i }).click();
+
+    await expect(page.getByRole("alert")).toContainText(
+      /invalid email or password/i,
+    );
+    await expect(page).toHaveURL("/sign-in"); // stays on sign-in page
+  });
+
+  test("redirects to sign-in when accessing a protected route unauthenticated", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard");
+    await expect(page).toHaveURL(/sign-in/);
+  });
+});
+```
+
+```typescript title="playwright.config.ts"
+import { defineConfig, devices } from "@playwright/test";
+
+export default defineConfig({
+  testDir: "./e2e",
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  reporter: process.env.CI ? "github" : "html",
+  use: {
+    baseURL: "http://localhost:3000",
+    trace: "on-first-retry",
+    screenshot: "only-on-failure",
+  },
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    { name: "firefox", use: { ...devices["Desktop Firefox"] } },
+    { name: "webkit", use: { ...devices["Desktop Safari"] } },
+    { name: "mobile", use: { ...devices["iPhone 14"] } },
+  ],
+  webServer: {
+    command: "npm run dev",
+    port: 3000,
+    reuseExistingServer: !process.env.CI,
+  },
+});
+```
+
+---
+
+## High-Signal Habits and Things to Avoid
+
+### What to do
+
+**Assert on behavior, not implementation.** Test what users see and can do — text on the screen, buttons they can click, messages that appear. Not which state variables were set or how many times an internal function was called.
+
+**Use `userEvent` over `fireEvent`.** `userEvent` simulates real browser events including focus, blur, keydown, keyup, and pointer events. `fireEvent` fires a single synthetic event and skips the rest. The gap matters for form validation, keyboard navigation, and anything that relies on event sequences.
+
+```typescript
+// ❌ fireEvent — fires a single synthetic event
+fireEvent.change(input, { target: { value: "hello" } });
+
+// ✅ userEvent — types character by character, fires all real events
+await userEvent.type(input, "hello");
+```
+
+**Mock at the network boundary, not the module boundary.** Mocking `import { signIn } from '@/lib/auth'` in every test file means your tests no longer test the code path from your component to your API call. MSW mocks the _network response_ — your component, your fetch call, your error handling, all of it runs for real.
+
+**Keep tests focused on one scenario per test.** A test that has 8 assertions testing 4 different behaviors will tell you something broke but not what. One behavior, one test, one clear failure message.
+
+### What to avoid
+
+**Don't test implementation details.** If your test breaks because you renamed an internal variable, moved a function, or refactored a component's state structure — but the user-facing behavior didn't change — the test was wrong. Tests should survive refactors.
+
+```typescript
+// ❌ Tests internal state — breaks on any state restructure
+expect(wrapper.state("isLoading")).toBe(true);
+
+// ✅ Tests what the user sees
+expect(screen.getByRole("button", { name: /signing in/i })).toBeDisabled();
+```
+
+**Don't overuse snapshots.** Snapshot tests for large component trees fail constantly for innocuous changes (adding a class, changing a string, restructuring markup) and get updated blindly. They add noise without adding signal. Use snapshots sparingly — for small, stable outputs like formatted strings or serialized data structures, not for entire component trees.
+
+**Don't sprinkle `data-testid` everywhere.** Test IDs are a last resort, not a first choice. If you can't find an element by its role, label, or text, that's often a signal the element is inaccessible — fixing the accessibility issue fixes the testability at the same time.
+
+**Don't fake timers without resetting them.**
+
+```typescript
+// ❌ Leaks fake timers into other tests
+vi.useFakeTimers();
+
+// ✅ Always restore after
+afterEach(() => vi.useRealTimers());
+```
+
+---
+
+## Organizing Your Test Suite
+
+A test file should live next to the code it tests. Co-location makes it obvious what has and hasn't been tested, and keeps the feedback loop short:
+
+```
+src/
+├── components/
+│   ├── LoginForm.tsx
+│   ├── LoginForm.test.tsx      ← integration test
+│   ├── LoginForm.a11y.test.tsx ← accessibility test
+│   └── LoginForm.stories.tsx   ← Storybook stories (optional)
+├── hooks/
+│   ├── useCounter.ts
+│   └── useCounter.test.ts      ← unit test
+├── lib/
+│   ├── price.ts
+│   └── price.test.ts           ← unit test
+└── test/
+    ├── setup.ts                ← global test config
+    └── mocks/
+        ├── handlers.ts         ← MSW default handlers
+        └── server.ts           ← MSW server setup
+
+e2e/
+├── auth.spec.ts
+├── checkout.spec.ts
+└── onboarding.spec.ts
+```
+
+---
+
+## Running Tests in CI
+
+Tests are only as good as how consistently they run. Every PR should run the full suite before anything merges.
+
+```yaml title=".github/workflows/test.yml"
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit-and-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+      - run: npm ci
+      - run: npm run test -- --coverage
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+      - run: npm ci
+      - run: npx playwright install --with-deps
+      - run: npm run build
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+```
+
+Split unit/integration and E2E into separate jobs so they run in parallel and so a failing E2E test doesn't block fast feedback from unit tests.
+
+---
+
+## Wrap-Up
+
+A great test suite is not a collection of as many tests as you could write — it's a deliberate investment in the scenarios that matter. Start with the core:
+
+1. **Unit tests** for your pure functions and custom hooks
+2. **Integration tests** for your most-used components and critical flows, with MSW handling the network
+3. **Accessibility tests** on every form and interactive component
+4. **A handful of E2E tests** for the flows a broken app would lose users over
+
+Write tests that survive refactors, assert on what users experience, and fail loudly and clearly when something real breaks. Over time, that suite becomes living documentation — a runnable specification of how your app is supposed to behave — and the confidence it gives you is what lets you ship changes on a Friday without that familiar knot in your stomach.
+
+---
+
+_Got a testing pattern that's saved your team from a nasty regression? I'd love to hear about it._

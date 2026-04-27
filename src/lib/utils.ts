@@ -15,3 +15,11 @@ export function formatDate(date: string | Date) {
     timeZone: "UTC",
   });
 }
+
+export function resolveImageUrl(
+  baseUrl: string,
+  image: string | undefined,
+): string | undefined {
+  if (!image) return undefined;
+  return image.startsWith("http") ? image : `${baseUrl}${image}`;
+}

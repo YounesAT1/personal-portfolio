@@ -2,55 +2,710 @@
 title: "10 Next.js Performance Tips for Production Apps"
 publishedAt: "2024-12-05"
 updatedAt: "2024-12-05"
-author: "John Doe"
-summary: "Practical optimization techniques to make your Next.js applications blazing fast in production."
+author: "YOUNES AIT-TALB"
+summary: "Practical, in-depth optimization techniques to make your Next.js applications fast in production — covering images, caching, bundle size, rendering strategies, fonts, prefetching, and more."
 image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=192&fit=crop"
 ---
 
-Performance isn't optional—it's a feature. Here are battle-tested tips for optimizing Next.js apps.
+# 10 Next.js Performance Tips for Production Apps
 
-# 2. Optimize Images
+Performance isn't a feature you add at the end — it's a discipline you build into every decision from the start. A slow app doesn't just frustrate users; it costs you conversions, SEO rankings, and trust. Google's Core Web Vitals are a direct input into search ranking. A 100ms improvement in LCP can meaningfully move the needle on both UX and organic traffic.
 
-Always use `next/image`
+Next.js gives you a lot of performance wins out of the box — but "out of the box" is just the floor. This post covers the 10 optimizations that consistently make the biggest difference in real production Next.js apps, with concrete code examples for each.
 
-```tsx
-import Image from 'next/image';
+---
+
+## 1. Use the Right Rendering Strategy for Each Page
+
+The single most impactful performance decision in a Next.js app is choosing the right rendering strategy. The App Router gives you fine-grained control — don't default everything to client-side rendering out of habit.
+
+Here's how to think about it:
+
+| Strategy         | When to use                                               | How                                             |
+| ---------------- | --------------------------------------------------------- | ----------------------------------------------- |
+| **Static (SSG)** | Content rarely changes (blog, docs, marketing)            | No `fetch` options needed — static by default   |
+| **ISR**          | Content changes occasionally (e-commerce, news)           | `revalidate` on fetch or route segment          |
+| **Dynamic SSR**  | Content is per-request (user dashboard, auth-gated pages) | `dynamic = 'force-dynamic'` or uncached fetches |
+| **Client-side**  | Highly interactive, user-specific, real-time              | `'use client'` + SWR/React Query                |
+
+```typescript title="app/blog/[slug]/page.tsx"
+// Static by default — pre-rendered at build time
+export default async function BlogPost({ params }: { params: { slug: string } }) {
+  const post = await getPost(params.slug); // cached indefinitely
+  return <Article post={post} />;
+}
+
+// Tell Next.js which slugs to pre-render
+export async function generateStaticParams() {
+  const posts = await getAllPosts();
+  return posts.map((post) => ({ slug: post.slug }));
+}
+```
+
+```typescript title="app/products/[id]/page.tsx"
+// ISR — regenerate every 60 seconds
+export const revalidate = 60;
+
+export default async function ProductPage({ params }: { params: { id: string } }) {
+  const product = await getProduct(params.id);
+  return <ProductView product={product} />;
+}
+```
+
+```typescript title="app/dashboard/page.tsx"
+// Force dynamic — per-request, never cached
+export const dynamic = 'force-dynamic';
+
+export default async function Dashboard() {
+  const user = await getCurrentUser(); // reads cookies/headers
+  const stats = await getUserStats(user.id);
+  return <DashboardView stats={stats} />;
+}
+```
+
+**The rule:** start static, add dynamism only where required. Every dynamic page is a server hit. Every static page is a CDN hit.
+
+---
+
+## 2. Optimize Images with `next/image`
+
+Images are typically the largest contributor to page weight and the most common cause of poor LCP (Largest Contentful Paint) scores. The `next/image` component handles the hard parts automatically: lazy loading, format conversion (WebP/AVIF), responsive `srcset` generation, and preventing layout shift.
+
+```tsx title="components/Hero.tsx"
+import Image from "next/image";
 
 export function Hero() {
   return (
     <Image
       src="/hero.jpg"
-      alt="Hero image"
+      alt="Hero banner showing the product dashboard"
       width={1200}
       height={600}
-      priority // Load immediately for LCP
-      placeholder="blur"
-      blurDataURL="data:image/jpeg;base64,..."
+      priority // Skip lazy loading — this is above the fold
+      placeholder="blur" // Show blurred placeholder while loading
+      blurDataURL="data:image/jpeg;base64,/9j/4AAQ..." // tiny base64 preview
+      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1200px"
+      quality={85} // 85 is the sweet spot — visually identical to 100
     />
   );
 }
 ```
 
+**Key props explained:**
 
-## 4. Implement Proper Caching
+- `priority` — disables lazy loading and sets `fetchpriority="high"`. Use this only on the LCP image (typically your hero or above-the-fold image). Using it on everything defeats the purpose.
+- `sizes` — tells the browser which size image to download based on viewport. Without this, the browser may download a 1200px image on a 375px phone.
+- `placeholder="blur"` — prevents the jarring "pop-in" of images loading. Generate the `blurDataURL` at build time using `plaiceholder` or similar.
+- `quality={85}` — the default is 75. Bump to 85 for hero images where visual fidelity matters; drop to 60–70 for thumbnails.
 
-| Strategy | Use Case | TTL |
-|----------|----------|-----|
-| `force-cache` | Static data | Forever |
-| `revalidate: 3600` | Semi-static | 1 hour |
-| `revalidate: 60` | Frequently updated | 1 minute |
-| `no-store` | Real-time data | Never cache |
+**For external image domains**, add them to `next.config.ts`:
 
-## 5. Minimize Client Components
+```typescript title="next.config.ts"
+const config: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+      },
+      {
+        protocol: "https",
+        hostname: "cdn.yourapp.com",
+        pathname: "/uploads/**",
+      },
+    ],
+    formats: ["image/avif", "image/webp"], // prefer AVIF — 50% smaller than WebP
+  },
+};
+```
 
-Every `'use client'` directive adds to your JavaScript bundle. Keep client components small and focused:
+---
 
-## 6. Bundle Analysis
+## 3. Optimize Fonts with `next/font`
 
-```bash title="terminal"
-# Install analyzer
-npm install @next/bundle-analyzer
+Font loading is a silent performance killer. Fonts block rendering, cause layout shift (FOUT/FOIT), and add network round trips. `next/font` eliminates all of this by downloading fonts at build time, self-hosting them, and injecting `font-display: swap` automatically.
 
-# Run analysis
+```typescript title="app/layout.tsx"
+import { Inter, JetBrains_Mono } from 'next/font/google';
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-sans',    // expose as a CSS variable for Tailwind
+  preload: true,
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-mono',
+  weight: ['400', '500', '700'],
+});
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <body className="font-sans">{children}</body>
+    </html>
+  );
+}
+```
+
+```typescript title="tailwind.config.ts"
+export default {
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+        mono: ["var(--font-mono)", "monospace"],
+      },
+    },
+  },
+};
+```
+
+**Why this matters:** without `next/font`, your page makes a separate network request to Google's CDN for the font, which adds a full round-trip and blocks the render. With `next/font`, the font is bundled into your deployment and served from the same origin — zero extra round trips, zero layout shift, zero render blocking.
+
+**Subset aggressively.** Most Latin-script apps only need `subsets: ['latin']`. Loading `latin-ext`, `cyrillic`, and `vietnamese` for an English-only app adds kilobytes for no reason.
+
+---
+
+## 4. Implement Proper Data Caching
+
+The App Router's fetch caching model is powerful but easy to misuse. Every `fetch` call inside a Server Component is cached by default — the question is _how long_ and _when to revalidate_.
+
+```typescript title="lib/api.ts"
+// Cached indefinitely — great for build-time data (static content)
+async function getStaticConfig() {
+  const res = await fetch("https://api.example.com/config", {
+    cache: "force-cache",
+  });
+  return res.json();
+}
+
+// Revalidated every hour — semi-static content (product catalog)
+async function getProducts() {
+  const res = await fetch("https://api.example.com/products", {
+    next: { revalidate: 3600 },
+  });
+  return res.json();
+}
+
+// Revalidated every 60 seconds — frequently updated (stock levels)
+async function getInventory(productId: string) {
+  const res = await fetch(`https://api.example.com/inventory/${productId}`, {
+    next: { revalidate: 60, tags: [`inventory-${productId}`] },
+  });
+  return res.json();
+}
+
+// Never cached — real-time data (live prices, notifications)
+async function getLivePrice(ticker: string) {
+  const res = await fetch(`https://api.example.com/price/${ticker}`, {
+    cache: "no-store",
+  });
+  return res.json();
+}
+```
+
+**On-demand revalidation** is the key to cache + freshness. Tag your fetches, then invalidate them from a Server Action or API route when the data changes:
+
+```typescript title="app/actions/revalidate.ts"
+"use server";
+
+import { revalidateTag, revalidatePath } from "next/cache";
+
+// Call this from a webhook when a product is updated in your CMS
+export async function revalidateProduct(productId: string) {
+  revalidateTag(`product-${productId}`); // invalidate tagged fetches
+  revalidatePath(`/products/${productId}`); // invalidate the page
+}
+```
+
+**Caching strategy reference:**
+
+| Strategy         | `fetch` option                              | Use when                                        |
+| ---------------- | ------------------------------------------- | ----------------------------------------------- |
+| Indefinite cache | `cache: 'force-cache'`                      | Build-time content, never changes               |
+| Time-based ISR   | `next: { revalidate: N }`                   | Changes occasionally, freshness has a tolerance |
+| On-demand ISR    | `next: { tags: ['key'] }` + `revalidateTag` | Changes on events (CMS publish, webhook)        |
+| No cache         | `cache: 'no-store'`                         | User-specific or real-time data                 |
+
+---
+
+## 5. Minimize and Split Client Components
+
+Every `'use client'` directive adds JavaScript to the client bundle. The more JavaScript shipped to the browser, the slower the initial page load. This doesn't mean avoid Client Components — it means be intentional about what needs to run in the browser.
+
+**The core principle: push `'use client'` to the leaves of your component tree.**
+
+```tsx
+// ❌ Bad — the entire page becomes a Client Component because of one button
+"use client";
+
+export default function ProductPage({ product }) {
+  const [count, setCount] = useState(1);
+
+  return (
+    <div>
+      <h1>{product.name}</h1> {/* doesn't need to be client-side */}
+      <p>{product.description}</p> {/* doesn't need to be client-side */}
+      <img src={product.image} /> {/* doesn't need to be client-side */}
+      {/* Only this needs interactivity */}
+      <button onClick={() => setCount((c) => c + 1)}>
+        Add to Cart ({count})
+      </button>
+    </div>
+  );
+}
+```
+
+```tsx
+// ✅ Good — only the interactive part is a Client Component
+// app/products/[id]/page.tsx (Server Component)
+import { AddToCartButton } from "./AddToCartButton";
+
+export default async function ProductPage({ params }) {
+  const product = await getProduct(params.id);
+
+  return (
+    <div>
+      <h1>{product.name}</h1>
+      <p>{product.description}</p>
+      <img src={product.image} />
+      <AddToCartButton productId={product.id} /> {/* only this is client */}
+    </div>
+  );
+}
+
+// components/AddToCartButton.tsx (Client Component)
+("use client");
+
+export function AddToCartButton({ productId }: { productId: string }) {
+  const [count, setCount] = useState(1);
+  return (
+    <button onClick={() => setCount((c) => c + 1)}>
+      Add to Cart ({count})
+    </button>
+  );
+}
+```
+
+The static parts of the page are now rendered on the server and sent as HTML — no JavaScript needed for them. Only the button ships client-side JavaScript.
+
+**Other common culprits to audit:**
+
+- `useState` or `useEffect` at the top of a layout — split out the interactive part
+- Context providers that wrap everything — they force entire subtrees client-side
+- Third-party components that are `'use client'` by default — wrap them in a thin client boundary
+
+---
+
+## 6. Analyze and Reduce Your Bundle
+
+You can't optimize what you can't measure. `@next/bundle-analyzer` gives you a visual treemap of exactly what's in your JavaScript bundles and where the weight is coming from.
+
+```bash
+npm install --save-dev @next/bundle-analyzer
+```
+
+```typescript title="next.config.ts"
+import bundleAnalyzer from "@next/bundle-analyzer";
+
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+});
+
+export default withBundleAnalyzer({
+  // your Next.js config
+});
+```
+
+```bash
+# Generate the analysis report
 ANALYZE=true npm run build
 ```
+
+This opens an interactive treemap in your browser. Look for:
+
+- **Duplicate dependencies** — two versions of the same library (`lodash` and `lodash-es` both present, for example)
+- **Large libraries loaded entirely** — if you're importing one utility from a 200KB library, find a smaller alternative or import directly
+- **Unexpected client-side inclusions** — server-only code that ended up in the client bundle
+
+**Common fixes after analysis:**
+
+```typescript
+// ❌ Imports the entire lodash library (70KB+)
+import _ from "lodash";
+const result = _.groupBy(items, "category");
+
+// ✅ Imports only what you need
+import groupBy from "lodash/groupBy";
+const result = groupBy(items, "category");
+
+// ✅ Or use native alternatives (no import needed)
+const result = Object.groupBy(items, (item) => item.category);
+```
+
+```typescript
+// ❌ date-fns full import
+import { format, parseISO, differenceInDays } from "date-fns";
+
+// ✅ date-fns already supports tree-shaking — this is fine
+// But make sure your bundler is configured to tree-shake ES modules
+```
+
+```typescript
+// ❌ Moment.js — 67KB minified+gzipped, includes all locales
+import moment from "moment";
+
+// ✅ Replace with date-fns (~13KB) or dayjs (~7KB)
+import { format } from "date-fns";
+import dayjs from "dayjs";
+```
+
+---
+
+## 7. Lazy Load Heavy Components
+
+Not everything needs to load immediately. Heavy components — rich text editors, chart libraries, map embeds, PDF viewers — can be deferred until they're actually needed with `next/dynamic`.
+
+```typescript title="components/RichTextEditor.tsx"
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/ui/Skeleton';
+
+// Deferred — only loads when this component mounts
+const Editor = dynamic(
+  () => import('@/components/Editor'),
+  {
+    loading: () => <Skeleton className="h-64 w-full" />,
+    ssr: false, // editors often use browser APIs, skip SSR
+  }
+);
+
+// Chart library — heavy, not needed until user scrolls to it
+const RevenueChart = dynamic(
+  () => import('@/components/RevenueChart').then(mod => mod.RevenueChart),
+  {
+    loading: () => <Skeleton className="h-48 w-full" />,
+  }
+);
+
+export function ArticleEditor() {
+  return (
+    <div>
+      <Editor />
+      <RevenueChart data={data} />
+    </div>
+  );
+}
+```
+
+**Combine with `IntersectionObserver` for truly on-demand loading:**
+
+```tsx title="components/LazySection.tsx"
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+
+const HeavyChart = dynamic(() => import("./HeavyChart"), { ssr: false });
+
+export function LazySection() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setIsVisible(true);
+      },
+      { rootMargin: "200px" }, // start loading 200px before it enters the viewport
+    );
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={ref} className="min-h-[300px]">
+      {isVisible ? (
+        <HeavyChart />
+      ) : (
+        <div className="h-[300px] bg-surface animate-pulse rounded-lg" />
+      )}
+    </div>
+  );
+}
+```
+
+---
+
+## 8. Prefetch and Preload Strategically
+
+Next.js prefetches `<Link>` components automatically in production — but you can go further by being deliberate about what gets prefetched and when.
+
+```tsx
+import Link from 'next/link';
+
+// ✅ Default — prefetches on hover in production
+<Link href="/about">About</Link>
+
+// Disable prefetch for high-churn pages you don't want cached
+<Link href="/dashboard" prefetch={false}>Dashboard</Link>
+
+// Force eager prefetch for high-priority navigation
+<Link href="/checkout" prefetch={true}>Checkout</Link>
+```
+
+**Programmatic prefetching** with `useRouter` for interactions you know will lead to navigation:
+
+```tsx
+"use client";
+
+import { useRouter } from "next/navigation";
+
+export function ProductCard({ product }) {
+  const router = useRouter();
+
+  return (
+    <div
+      // Prefetch on hover — by the time they click, it's already cached
+      onMouseEnter={() => router.prefetch(`/products/${product.slug}`)}
+    >
+      <h3>{product.name}</h3>
+      <Link href={`/products/${product.slug}`}>View Details</Link>
+    </div>
+  );
+}
+```
+
+**Preload critical resources** directly in your `<head>` using Next.js metadata:
+
+```typescript title="app/layout.tsx"
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <head>
+        {/* Preload critical above-the-fold image */}
+        <link
+          rel="preload"
+          href="/hero.jpg"
+          as="image"
+          type="image/jpeg"
+        />
+        {/* Preconnect to external origins you'll fetch from */}
+        <link rel="preconnect" href="https://api.example.com" />
+        <link rel="dns-prefetch" href="https://cdn.example.com" />
+      </head>
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+---
+
+## 9. Optimize Metadata and SEO
+
+Slow metadata = slow perceived load. Poorly structured metadata = lost search traffic. Both are addressable with a few patterns.
+
+**Use the Metadata API — not raw `<head>` tags:**
+
+```typescript title="app/blog/[slug]/page.tsx"
+import type { Metadata } from "next";
+
+// Dynamic metadata generated from the page's data
+export async function generateMetadata({
+  params,
+}: {
+  params: { slug: string };
+}): Promise<Metadata> {
+  const post = await getPost(params.slug);
+
+  return {
+    title: post.title,
+    description: post.summary,
+    authors: [{ name: post.author }],
+    openGraph: {
+      title: post.title,
+      description: post.summary,
+      type: "article",
+      publishedTime: post.publishedAt,
+      url: `https://yoursite.com/blog/${post.slug}`,
+      images: [
+        {
+          url: post.image,
+          width: 1200,
+          height: 630,
+          alt: post.title,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description: post.summary,
+      images: [post.image],
+    },
+    alternates: {
+      canonical: `https://yoursite.com/blog/${post.slug}`,
+    },
+  };
+}
+```
+
+**Generate an `opengraph-image` automatically:**
+
+```tsx title="app/blog/[slug]/opengraph-image.tsx"
+import { ImageResponse } from "next/og";
+
+export const runtime = "edge";
+export const size = { width: 1200, height: 630 };
+export const contentType = "image/png";
+
+export default async function OGImage({
+  params,
+}: {
+  params: { slug: string };
+}) {
+  const post = await getPost(params.slug);
+
+  return new ImageResponse(
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        width: "100%",
+        height: "100%",
+        backgroundColor: "#0f172a",
+        padding: "80px",
+      }}
+    >
+      <p style={{ color: "#64748b", fontSize: 24 }}>{post.category}</p>
+      <h1
+        style={{
+          color: "#f8fafc",
+          fontSize: 60,
+          lineHeight: 1.2,
+          marginTop: 16,
+        }}
+      >
+        {post.title}
+      </h1>
+      <p style={{ color: "#94a3b8", fontSize: 28, marginTop: "auto" }}>
+        {post.author} · {post.publishedAt}
+      </p>
+    </div>,
+    size,
+  );
+}
+```
+
+This generates OG images at the edge on demand — no image pre-generation needed, and each post gets a unique, correctly branded social preview card.
+
+---
+
+## 10. Measure Everything with Core Web Vitals
+
+All the optimization in the world means nothing without measurement. You need to know your baseline, verify that changes actually improve things, and monitor for regressions.
+
+**The three Core Web Vitals that matter most:**
+
+| Metric                              | Measures            | Good threshold |
+| ----------------------------------- | ------------------- | -------------- |
+| **LCP** (Largest Contentful Paint)  | Loading performance | ≤ 2.5s         |
+| **INP** (Interaction to Next Paint) | Interactivity       | ≤ 200ms        |
+| **CLS** (Cumulative Layout Shift)   | Visual stability    | ≤ 0.1          |
+
+**Capture real user metrics with the `useReportWebVitals` hook:**
+
+```typescript title="app/WebVitals.tsx"
+"use client";
+
+import { useReportWebVitals } from "next/web-vitals";
+
+export function WebVitals() {
+  useReportWebVitals((metric) => {
+    // Send to your analytics platform
+    console.log(metric.name, metric.value, metric.rating);
+
+    // Example: send to Vercel Analytics, Datadog, or your own endpoint
+    if (process.env.NODE_ENV === "production") {
+      fetch("/api/vitals", {
+        method: "POST",
+        body: JSON.stringify({
+          name: metric.name,
+          value: metric.value,
+          rating: metric.rating, // 'good' | 'needs-improvement' | 'poor'
+          id: metric.id,
+          url: window.location.href,
+        }),
+        keepalive: true,
+      });
+    }
+  });
+
+  return null;
+}
+```
+
+```typescript title="app/layout.tsx"
+import { WebVitals } from './WebVitals';
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        <WebVitals />
+        {children}
+      </body>
+    </html>
+  );
+}
+```
+
+**Tools for measurement:**
+
+- **Lighthouse** (Chrome DevTools) — synthetic testing, good for catching regressions locally
+- **PageSpeed Insights** — runs Lighthouse against your real URL, shows field data from the Chrome User Experience Report
+- **Vercel Analytics** — real user monitoring with Core Web Vitals, zero config if you're on Vercel
+- **WebPageTest** — deeper waterfall analysis, film strips, and multi-location testing
+- **Chrome User Experience Report (CrUX)** — Google's dataset of real-world performance, what Search Console uses
+
+**The most common CLS culprits and fixes:**
+
+```tsx
+// ❌ CLS: image has no dimensions — browser doesn't reserve space
+<img src="/hero.jpg" />
+
+// ✅ Reserve space with explicit width/height or aspect ratio
+<Image src="/hero.jpg" width={1200} height={600} alt="..." />
+
+// ❌ CLS: font swap causes text reflow
+// (avoid with next/font — see tip #3)
+
+// ❌ CLS: dynamic content inserted above existing content
+// (use min-height or skeleton placeholders to reserve space)
+<div className="min-h-[80px]">
+  {isLoaded ? <Banner /> : <Skeleton className="h-20 w-full" />}
+</div>
+```
+
+---
+
+## Putting It All Together
+
+A quick priority order for where to start if you're auditing an existing app:
+
+1. **Run PageSpeed Insights** on your top 3 pages. Let the data tell you where the pain is before you guess.
+2. **Switch to `next/font`** — it's the lowest-effort, highest-impact change you can make today.
+3. **Audit `'use client'` usage** — find large Server Components that accidentally became client-heavy.
+4. **Check your images** — are you using `next/image`? Is `priority` set on your LCP image? Are `sizes` defined?
+5. **Run `@next/bundle-analyzer`** — look for surprisingly large packages and eliminate them.
+6. **Audit your fetch caching** — are things that should be cached actually cached? Are real-time endpoints correctly using `no-store`?
+
+Performance work is never "done" — it's a habit. Measure after every significant change, set a budget on your Core Web Vitals, and treat a regression the same way you'd treat a bug.
+
+---
+
+_If one of these tips helped you shave seconds off your LCP or fix a persistent CLS issue, I'd genuinely love to hear about it._

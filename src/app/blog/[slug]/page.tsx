@@ -1,5 +1,5 @@
 import { allPosts } from "content-collections";
-import { formatDate } from "@/lib/utils";
+import { formatDate, resolveImageUrl } from "@/lib/utils";
 import { DATA } from "@/data/resume";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -40,7 +40,13 @@ export async function generateMetadata({
     return undefined;
   }
 
-  let { title, publishedAt: publishedTime, summary: description, image } = post;
+  const {
+    title,
+    publishedAt: publishedTime,
+    summary: description,
+    image,
+  } = post;
+  const resolvedImage = resolveImageUrl(DATA.url, image);
 
   return {
     title,
@@ -51,20 +57,16 @@ export async function generateMetadata({
       type: "article",
       publishedTime,
       url: `${DATA.url}/blog/${slug}`,
-      ...(image && {
-        images: [
-          {
-            url: `${DATA.url}${image}`,
-          },
-        ],
+      ...(resolvedImage && {
+        images: [{ url: resolvedImage }],
       }),
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      ...(image && {
-        images: [`${DATA.url}${image}`],
+      ...(resolvedImage && {
+        images: [resolvedImage],
       }),
     },
   };
@@ -97,6 +99,8 @@ export default async function Blog({
   const getSlug = (post: (typeof sortedPosts)[0]) =>
     post._meta.path.replace(/\.mdx$/, "");
 
+  const resolvedImage = resolveImageUrl(DATA.url, post.image);
+
   const jsonLdContent = JSON.stringify({
     "@context": "https://schema.org",
     "@type": "BlogPosting",
@@ -104,9 +108,7 @@ export default async function Blog({
     datePublished: post.publishedAt,
     dateModified: post.publishedAt,
     description: post.summary,
-    image: post.image
-      ? `${DATA.url}${post.image}`
-      : `${DATA.url}/blog/${slug}/opengraph-image`,
+    image: resolvedImage ?? `${DATA.url}/blog/${slug}/opengraph-image`,
     url: `${DATA.url}/blog/${slug}`,
     author: {
       "@type": "Person",
