@@ -75,7 +75,7 @@ export default function ContactSection() {
       `}</style>
 
       {/* Outer wrapper — gives the absolute grid something to fill */}
-      <div className="relative max-w-7xl mx-auto mt-3">
+      <div className="relative max-w-2xl mx-auto mt-3">
         {/* FlickeringGrid sits behind the card, fades downward */}
         <div className="absolute inset-x-0 top-0 h-1/2 rounded-2xl overflow-hidden pointer-events-none">
           <FlickeringGrid
@@ -91,36 +91,15 @@ export default function ContactSection() {
 
         {/* Card sits on top */}
         <div className="relative z-10 border rounded-2xl overflow-hidden">
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_1.25fr]">
-            {/* ── Left panel ─────────────────────────────── */}
-            <div className="p-10 md:p-14 flex flex-col justify-between border-b md:border-b-0 md:border-r bg-muted/25">
-              <div className="space-y-8">
-                {/* Availability badge */}
-                <div className="flex items-center gap-2.5">
-                  <span className="cs-dot inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="text-[11px] tracking-[0.14em] uppercase text-muted-foreground">
-                    Available for work
-                  </span>
-                </div>
-
-                {/* Headline */}
-                <h2 className="text-5xl md:text-[3.5rem] lg:text-6xl font-normal leading-[1.05] tracking-tight">
-                  Let&apos;s build
-                  <br />
-                  <em>something</em>
-                  <br />
-                  remarkable.
-                </h2>
-              </div>
-
-              <p className="text-muted-foreground text-sm leading-relaxed mt-10 max-w-[24ch]">
-                Open to new projects, full-time roles, and interesting
-                conversations — big or small.
-              </p>
-            </div>
-
+          <div className="grid grid-cols-1 ">
             {/* ── Right panel ────────────────────────────── */}
             <div className="p-10 md:p-14 flex flex-col justify-center gap-9">
+              <div className="flex items-center gap-2.5">
+                <span className="cs-dot inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                <span className="text-[11px] tracking-[0.14em] uppercase text-muted-foreground">
+                  Available for work
+                </span>
+              </div>
               {/* Email */}
               <div className="space-y-2.5">
                 <p className="text-[11px] tracking-[0.15em] uppercase text-muted-foreground">
