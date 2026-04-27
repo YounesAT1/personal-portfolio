@@ -8,7 +8,7 @@ const BLUR_FADE_DELAY = 0.04;
 export default function SkillsSection() {
   return (
     <section id="skills">
-      <div className="flex min-h-0 flex-col gap-y-4">
+      <div className="flex min-h-0 flex-col gap-y-4 max-w-2xl mx-auto">
         <BlurFade delay={BLUR_FADE_DELAY * 9}>
           <SectionTitle>Skills & Tools</SectionTitle>
         </BlurFade>

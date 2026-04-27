@@ -10,7 +10,7 @@ const BLUR_FADE_DELAY = 0.04;
 export default function EducationSection() {
   return (
     <section id="education">
-      <div className="flex min-h-0 flex-col gap-y-6">
+      <div className="flex min-h-0 flex-col gap-y-6 max-w-2xl mx-auto">
         <BlurFade delay={BLUR_FADE_DELAY * 7}>
           <SectionTitle>Education</SectionTitle>
         </BlurFade>

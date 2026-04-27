@@ -14,7 +14,7 @@ const LANG_CODES: Record<string, string> = {
 export default function LanguagesSection() {
   return (
     <section id="languages">
-      <div className="flex min-h-0 flex-col gap-y-4">
+      <div className="flex min-h-0 flex-col gap-y-4 max-w-2xl mx-auto">
         <BlurFade delay={BLUR_FADE_DELAY * 10.5}>
           <SectionTitle>Languages</SectionTitle>
         </BlurFade>

@@ -9,7 +9,7 @@ const BLUR_FADE_DELAY = 0.04;
 export default function ProjectsSection() {
   return (
     <section id="projects">
-      <div className="flex min-h-0 flex-col gap-y-8">
+      <div className="flex min-h-0 flex-col gap-y-8 max-w-2xl mx-auto">
         <div className="flex flex-col gap-y-4 items-center justify-center">
           <SectionTitle>My Projects</SectionTitle>
           <div className="flex flex-col gap-y-3 items-center justify-center">
