@@ -31,7 +31,12 @@ export const DATA = {
     { name: "Docker", icon: "https://cdn.simpleicons.org/docker" },
     { name: "Kubernetes", icon: "https://cdn.simpleicons.org/kubernetes" },
     { name: "Git", icon: "https://cdn.simpleicons.org/git" },
+    { name: "GitHub", icon: "https://cdn.simpleicons.org/github" },
+    { name: "GitLab", icon: "https://cdn.simpleicons.org/gitlab" },
     { name: "Figma", icon: "https://cdn.simpleicons.org/figma" },
+
+    { name: "Claude", icon: "https://cdn.simpleicons.org/anthropic" },
+    { name: "Jira", icon: "https://cdn.simpleicons.org/jira" },
   ],
   navbar: [
     { href: "/", icon: HomeIcon, label: "Home" },
@@ -272,8 +277,8 @@ export const DATA = {
   ],
 
   languages: [
-    { name: "French", level: "Intermediate" },
-    { name: "Arabic", level: "Native" },
-    { name: "English", level: "Advanced" },
+    { name: "Arabic", level: "Native", flag: "🇲🇦" },
+    { name: "English", level: "Fluent", flag: "🇬🇧" },
+    { name: "French", level: "Intermediate", flag: "🇫🇷" },
   ],
 } as const;

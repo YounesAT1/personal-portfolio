@@ -12,10 +12,16 @@ import { ArrowUpRight } from "lucide-react";
 import Image from "next/image";
 import { Highlighter } from "@/components/ui/highlighter";
 import { SectionTitle } from "@/components/ui/section-title";
+import ReactCountryFlag from "react-country-flag";
 
 const BLUR_FADE_DELAY = 0.04;
 
 export default function Page() {
+  const LANG_CODES: Record<string, string> = {
+    Arabic: "MA",
+    French: "FR",
+    English: "GB",
+  };
   return (
     <main className="min-h-dvh flex flex-col gap-14 relative">
       <section id="hero">
@@ -178,7 +184,7 @@ export default function Page() {
       <section id="skills">
         <div className="flex min-h-0 flex-col gap-y-4">
           <BlurFade delay={BLUR_FADE_DELAY * 9}>
-            <SectionTitle>Skills</SectionTitle>
+            <SectionTitle>Skills & Tools</SectionTitle>
           </BlurFade>
           <div className="flex flex-wrap gap-2">
             {DATA.skills.map((skill, id) => (
@@ -215,7 +221,12 @@ export default function Page() {
                 delay={BLUR_FADE_DELAY * 10.8 + id * 0.05}
               >
                 <div className="border bg-background border-border ring-border/20 rounded-xl h-10 w-full px-4 flex items-center justify-between">
-                  <span className="text-foreground text-sm font-medium">
+                  <span className="text-foreground text-sm font-medium flex items-center gap-2">
+                    <ReactCountryFlag
+                      countryCode={LANG_CODES[lang.name] ?? "UN"}
+                      svg
+                      style={{ width: "1.2em", height: "1.2em" }}
+                    />
                     {lang.name}
                   </span>
                   <span className="text-muted-foreground text-sm">
