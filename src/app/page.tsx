@@ -31,15 +31,14 @@ export default function Page() {
                 />
                 <Highlighter action="underline" color="#87CEFA">
                   <p className="text-sm font-semibold text-blue-950 dark:text-blue-100">
-                    R&D Full Stack Developer
+                    R&D Full Stack Developer (Next.js - Java)
                   </p>
                 </Highlighter>
               </div>
               <BlurFadeText
-                className="text-muted-foreground max-w-[600px] md:text-lg lg:text-xl"
+                className="text-muted-foreground max-w-150 md:text-lg lg:text-xl"
                 delay={BLUR_FADE_DELAY}
                 text={DATA.description}
-
               />
             </div>
             <BlurFade delay={BLUR_FADE_DELAY} className="order-1 md:order-2">
@@ -58,9 +57,7 @@ export default function Page() {
           </BlurFade>
           <BlurFade delay={BLUR_FADE_DELAY * 4}>
             <div className="prose max-w-full text-pretty font-sans leading-relaxed text-muted-foreground dark:prose-invert">
-              <Markdown>
-                {DATA.summary}
-              </Markdown>
+              <Markdown>{DATA.summary}</Markdown>
             </div>
           </BlurFade>
         </div>
@@ -109,7 +106,10 @@ export default function Page() {
                     <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                       <div className="font-semibold leading-none flex items-center gap-2">
                         {cert.title}
-                        <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" aria-hidden />
+                        <ArrowUpRight
+                          className="h-3.5 w-3.5 text-muted-foreground opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200"
+                          aria-hidden
+                        />
                       </div>
                       <div className="font-sans text-sm text-muted-foreground">
                         {cert.issuer}
@@ -154,7 +154,10 @@ export default function Page() {
                     <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                       <div className="font-semibold leading-none flex items-center gap-2">
                         {education.school}
-                        <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" aria-hidden />
+                        <ArrowUpRight
+                          className="h-3.5 w-3.5 text-muted-foreground opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200"
+                          aria-hidden
+                        />
                       </div>
                       <div className="font-sans text-sm text-muted-foreground">
                         {education.degree}
@@ -179,10 +182,21 @@ export default function Page() {
           </BlurFade>
           <div className="flex flex-wrap gap-2">
             {DATA.skills.map((skill, id) => (
-              <BlurFade key={skill.name} delay={BLUR_FADE_DELAY * 10 + id * 0.05}>
+              <BlurFade
+                key={skill.name}
+                delay={BLUR_FADE_DELAY * 10 + id * 0.05}
+              >
                 <div className="border bg-background border-border  ring-border/20 rounded-xl h-8 w-fit px-4 flex items-center gap-2">
-                  {skill.icon && <img src={skill.icon} alt={skill.name} className="size-4 rounded overflow-hidden object-contain" />}
-                  <span className="text-foreground text-sm font-medium">{skill.name}</span>
+                  {skill.icon && (
+                    <img
+                      src={skill.icon}
+                      alt={skill.name}
+                      className="size-4 rounded overflow-hidden object-contain"
+                    />
+                  )}
+                  <span className="text-foreground text-sm font-medium">
+                    {skill.name}
+                  </span>
                 </div>
               </BlurFade>
             ))}
@@ -196,10 +210,17 @@ export default function Page() {
           </BlurFade>
           <div className="flex flex-col gap-2">
             {DATA.languages.map((lang, id) => (
-              <BlurFade key={lang.name} delay={BLUR_FADE_DELAY * 10.8 + id * 0.05}>
+              <BlurFade
+                key={lang.name}
+                delay={BLUR_FADE_DELAY * 10.8 + id * 0.05}
+              >
                 <div className="border bg-background border-border ring-border/20 rounded-xl h-10 w-full px-4 flex items-center justify-between">
-                  <span className="text-foreground text-sm font-medium">{lang.name}</span>
-                  <span className="text-muted-foreground text-sm">{lang.level}</span>
+                  <span className="text-foreground text-sm font-medium">
+                    {lang.name}
+                  </span>
+                  <span className="text-muted-foreground text-sm">
+                    {lang.level}
+                  </span>
                 </div>
               </BlurFade>
             ))}
