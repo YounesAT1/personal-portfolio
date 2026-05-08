@@ -117,7 +117,7 @@ export default async function Blog({
   }).replace(/</g, "\\u003c");
 
   return (
-    <section id="blog">
+    <section id="blog" className="max-w-2xl mx-auto">
       <script
         type="application/ld+json"
         suppressHydrationWarning

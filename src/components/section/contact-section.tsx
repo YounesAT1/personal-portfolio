@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DATA } from "@/data/resume";
 import { FlickeringGrid } from "../magicui/flickering-grid";
+import { DotPattern } from "../ui/dot-pattern";
 
 export default function ContactSection() {
   return (
@@ -74,14 +75,10 @@ export default function ContactSection() {
         }
       `}</style>
 
-      {/* Outer wrapper — gives the absolute grid something to fill */}
       <div className="relative max-w-2xl mx-auto mt-3">
-        {/* FlickeringGrid sits behind the card, fades downward */}
         <div className="absolute inset-x-0 top-0 h-1/2 rounded-2xl overflow-hidden pointer-events-none">
-          <FlickeringGrid
+          <DotPattern
             className="h-full w-full"
-            squareSize={2}
-            gridGap={2}
             style={{
               maskImage: "linear-gradient(to bottom, black, transparent)",
               WebkitMaskImage: "linear-gradient(to bottom, black, transparent)",
@@ -89,10 +86,8 @@ export default function ContactSection() {
           />
         </div>
 
-        {/* Card sits on top */}
         <div className="relative z-10 border rounded-2xl overflow-hidden">
           <div className="grid grid-cols-1 ">
-            {/* ── Right panel ────────────────────────────── */}
             <div className="p-10 md:p-14 flex flex-col justify-center gap-9">
               <div className="flex items-center gap-2.5">
                 <span className="cs-dot inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
@@ -100,7 +95,6 @@ export default function ContactSection() {
                   Available for work
                 </span>
               </div>
-              {/* Email */}
               <div className="space-y-2.5">
                 <p className="text-[11px] tracking-[0.15em] uppercase text-muted-foreground">
                   Email
@@ -120,7 +114,6 @@ export default function ContactSection() {
 
               <div className="h-px bg-border" />
 
-              {/* Social profiles */}
               <div className="space-y-4">
                 <p className="text-[11px] tracking-[0.15em] uppercase text-muted-foreground">
                   Profiles
@@ -142,7 +135,6 @@ export default function ContactSection() {
 
               <div className="h-px bg-border" />
 
-              {/* CTA row */}
               <Link
                 href={`mailto:${DATA.contact.email}`}
                 className="cs-cta group flex items-center justify-between w-full rounded-xl border border-border px-6 py-4"
