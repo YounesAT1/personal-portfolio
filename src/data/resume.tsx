@@ -8,9 +8,10 @@ export const DATA = {
   location: "Casablanca, Morocco",
   locationLink: "https://www.google.com/maps/place/casablanca",
   description:
-    "Full Stack R&D Developer specializing in Next.js and Java. I focus on designing scalable, high-performance web applications and exploring efficient architectural solutions to solve complex real-world business problems.",
+    "Full Stack R&D Developer specializing in Next.js / React.js and Java. I focus on designing scalable, high-performance web applications and crafting efficient architectural solutions for complex enterprise business problems.",
+
   summary:
-    "Full Stack Developer with 2 years of professional experience in designing and engineering enterprise-grade web applications. Currently working as a full-stack R&D developer at Neonovia, contributing to the complete redesign of the Visiativ Process platform.Specialized in Next.js, TypeScript, and REST API architecture, with a strong focus on performance optimization, and scalable frontend-backend integration. I enjoy working in research-oriented engineering environments where I can analyze trade-offs, improve system design, and turn complex business requirements into clean, maintainable solutions .",
+    "Full Stack Developer with nearly 2 years of professional experience in designing and engineering modern enterprise web applications. Currently working as a Full Stack R&D Developer at Neonovia, contributing to the development of the Raqmaneo platform. Specialized in Next.js, TypeScript and scalable frontend architecture, with solid experience in Java API development and backend integration. Comfortable working with strong autonomy on complex products — from architecture decisions and technical planning to implementation and performance optimization.",
   avatarUrl: "/me.jpg",
   skills: [
     { name: "Next.js", icon: "https://cdn.simpleicons.org/nextdotjs" },
@@ -73,36 +74,36 @@ export const DATA = {
       href: "https://neonovia.com/",
       badges: ["R&D"],
       location: "Casablanca",
-      title: "Full Stack R&D Developer",
+      title: "Full Stack R&D Developer (Next.js/React.js -  Java)",
       logoUrl: "/neonovia.png",
       start: "Jun 2025",
       end: "Present",
       description:
-        "Led the complete redesign of the Visiativ Process interface with Next.js, TypeScript and Tailwind CSS. Defined the frontend architecture from scratch — project structure, state management patterns (Redux / Context API / Zustand) and code conventions adopted by the entire team. Built a library of 20+ reusable components, reducing code redundancy and accelerating new feature delivery by ~30%. Developed custom business APIs via the Moovapps SDK (Java) and implemented real-time frontend/backend communication (SSE / WebSocket), improving data synchronization and reducing user friction under heavy load.",
+        "Leading frontend development of the Raqmaneo platform within a 2-person R&D team. Designed the complete frontend architecture using Next.js, TypeScript and Tailwind CSS — covering project structure, component organization and development standards. Built complex business interfaces including analytics dashboards, dynamic forms, real-time workflows and data visualization. Contributed to the backend through Java/Moovapps API development and integration. Implemented real-time communication mechanisms (SSE/WebSocket) for instant data synchronization and optimized frontend performance across the codebase.",
     },
     {
       company: "Euryops",
       href: "https://www.euryops.ma/",
       badges: [],
       location: "Casablanca",
-      title: "Full Stack Developer",
+      title: "Full Stack Developer (Next.js/React.js)",
       logoUrl: "/euryops.png",
       start: "Sep 2024",
       end: "May 2025",
       description:
-        "Designed and developed a modular ERP from scratch using Next.js, Tailwind CSS and MySQL, now used daily by internal teams. Modeled and optimized the relational database schema through indexing and SQL query optimization, reducing average API response time by 30%+. Built 10+ RESTful APIs covering authentication (JWT), role management (RBAC) and business workflows with a focus on security and scalability. Delivered responsive, intuitive interfaces — real-time dashboards, multi-step forms and filterable data tables.",
+        "Designed and developed a modular ERP from scratch for managing internal business operations using Next.js, Tailwind CSS and MySQL. Modeled and optimized the relational database through indexing and SQL query improvements, reducing API response times significantly. Built secure REST APIs covering JWT authentication, role-based access control (RBAC) and business workflows. Delivered advanced business interfaces including real-time dashboards, multi-step dynamic forms and filterable data tables. Collaborated with business teams on product evolution in an Agile environment.",
     },
     {
-      company: "Euryops (Stage)",
+      company: "Euryops  (Internship)",
       href: "https://www.euryops.ma/",
       badges: ["Internship"],
       location: "Casablanca",
-      title: "Full Stack Developer (Internship)",
+      title: "BPM Developer (Visiativ Platform)",
       logoUrl: "/euryops.png",
       start: "Apr 2024",
       end: "May 2024",
       description:
-        "Digitized 5+ key business processes on the Visiativ platform, fully replacing paper and Excel workflows and eliminating manual data entry errors. Automated repetitive approval and notification workflows, reducing manual processing time by approximately 50–60%. Managed the client backlog, prioritized requests based on business impact and delivered key features within each sprint.",
+        "Digitized several key business processes on the Visiativ platform, fully replacing manual Excel and paper-based workflows. Developed and automated approval, validation and notification workflows to improve operational efficiency. Participated in business needs analysis and implemented features tailored to internal processes. Contributed to product backlog management and task prioritization in an Agile/Scrum environment, delivering features on time while ensuring quality and stability.",
     },
   ],
 
@@ -266,7 +267,7 @@ export const DATA = {
 
   languages: [
     { name: "Arabic", level: "Native", flag: "🇲🇦" },
-    { name: "English", level: "Fluent", flag: "🇬🇧" },
+    { name: "English", level: "Conversational", flag: "🇬🇧" },
     { name: "French", level: "Intermediate", flag: "🇫🇷" },
   ],
 } as const;

@@ -21,7 +21,7 @@ export default function HeroSection() {
               />
               <Highlighter action="underline" color="#87CEFA">
                 <p className="text-sm font-semibold text-blue-950 dark:text-blue-100">
-                  R&D Full Stack Developer (Next.js - Java)
+                  Full Stack Developer (Next.js/React.js - Java)
                 </p>
               </Highlighter>
             </div>
