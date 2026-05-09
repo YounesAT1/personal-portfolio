@@ -11,7 +11,7 @@ export const DATA = {
     "Full Stack R&D Developer specializing in Next.js / React.js and Java. I focus on designing scalable, high-performance web applications and crafting efficient architectural solutions for complex enterprise business problems.",
 
   summary:
-    "Full Stack Developer with nearly 2 years of professional experience in designing and engineering modern enterprise web applications. Currently working as a Full Stack R&D Developer at Neonovia, contributing to the development of the Raqmaneo platform. Specialized in Next.js, TypeScript and scalable frontend architecture, with solid experience in Java API development and backend integration. Comfortable working with strong autonomy on complex products — from architecture decisions and technical planning to implementation and performance optimization.",
+    "Full Stack Developer with nearly 2 years of professional experience in designing and engineering modern enterprise web applications.Specialized in Next.js, TypeScript and scalable frontend architecture, with solid experience in Java API development and backend integration. Comfortable working with strong autonomy on complex products — from architecture decisions and technical planning to implementation and performance optimization.",
   avatarUrl: "/me.jpg",
   skills: [
     { name: "Next.js", icon: "https://cdn.simpleicons.org/nextdotjs" },
