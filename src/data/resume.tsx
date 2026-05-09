@@ -79,7 +79,7 @@ export const DATA = {
       start: "Jun 2025",
       end: "Present",
       description:
-        "Leading frontend development of the Raqmaneo platform within a 2-person R&D team. Designed the complete frontend architecture using Next.js, TypeScript and Tailwind CSS — covering project structure, component organization and development standards. Built complex business interfaces including analytics dashboards, dynamic forms, real-time workflows and data visualization. Contributed to the backend through Java/Moovapps API development and integration. Implemented real-time communication mechanisms (SSE/WebSocket) for instant data synchronization and optimized frontend performance across the codebase.",
+        "Leading frontend development within a small R&D team, architecting a modern web platform using Next.js, TypeScript, and Tailwind CSS. Established the frontend architecture, component system, and development standards. Delivered complex business interfaces including analytics dashboards, dynamic forms, real-time workflows, and advanced data visualizations. Contributed to backend development through Java API integration and implemented real-time communication using Server-Sent Events and WebSockets to enable instant data synchronization while improving overall frontend performance.",
     },
     {
       company: "Euryops",
