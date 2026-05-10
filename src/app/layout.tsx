@@ -2,13 +2,14 @@ import Navbar from "@/components/navbar";
 import ScrollToTop from "@/components/scroll-to-top";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { DATA } from "@/data/resume";
 import { cn } from "@/lib/utils";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { FlickeringGrid } from "@/components/magicui/flickering-grid";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import { LanguageProvider } from "@/context/language-context";
+import { DATA } from "@/data/me";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -72,28 +73,30 @@ export default function RootLayout({
           geistMono.variable,
         )}
       >
-        <ThemeProvider attribute="class" defaultTheme="light">
-          <TooltipProvider delayDuration={0}>
-            <div className="absolute inset-0 top-0 left-0 right-0 h-25 overflow-hidden z-0">
-              <FlickeringGrid
-                className="h-full w-full"
-                squareSize={2}
-                gridGap={2}
-                style={{
-                  maskImage: "linear-gradient(to bottom, black, transparent)",
-                  WebkitMaskImage:
-                    "linear-gradient(to bottom, black, transparent)",
-                }}
-              />
-            </div>
-            <div className="relative z-10  mx-auto py-12 pb-24 sm:py-24 px-6">
-              {children}
-            </div>
-            <Navbar />
-            <ScrollToTop />
-          </TooltipProvider>
-        </ThemeProvider>
-        <GoogleAnalytics gaId="G-RXWNY0BFHQ" />
+        <LanguageProvider>
+          <ThemeProvider attribute="class" defaultTheme="light">
+            <TooltipProvider delayDuration={0}>
+              <div className="absolute inset-0 top-0 left-0 right-0 h-25 overflow-hidden z-0">
+                <FlickeringGrid
+                  className="h-full w-full"
+                  squareSize={2}
+                  gridGap={2}
+                  style={{
+                    maskImage: "linear-gradient(to bottom, black, transparent)",
+                    WebkitMaskImage:
+                      "linear-gradient(to bottom, black, transparent)",
+                  }}
+                />
+              </div>
+              <div className="relative z-10  mx-auto py-12 pb-24 sm:py-24 px-6">
+                {children}
+              </div>
+              <Navbar />
+              <ScrollToTop />
+            </TooltipProvider>
+          </ThemeProvider>
+          <GoogleAnalytics gaId="G-RXWNY0BFHQ" />
+        </LanguageProvider>
       </body>
     </html>
   );

@@ -1,6 +1,7 @@
+"use client";
 import BlurFade from "@/components/magicui/blur-fade";
 import { SectionTitle } from "@/components/ui/section-title";
-import { DATA } from "@/data/resume";
+import { useLanguage } from "@/context/language-context";
 import { ArrowUpRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -8,11 +9,15 @@ import Link from "next/link";
 const BLUR_FADE_DELAY = 0.04;
 
 export default function CertificationsSection() {
+  const { data: DATA, language } = useLanguage();
+
+  const sectionName = language === "en" ? "Certifications" : "Certifications";
+
   return (
     <section id="certifications">
-      <div className="flex min-h-0 flex-col gap-y-6 max-w-2xl mx-auto">
+      <div className="flex min-h-0 flex-col gap-y-6 max-w-3xl mx-auto">
         <BlurFade delay={BLUR_FADE_DELAY * 6.5}>
-          <SectionTitle>Certifications</SectionTitle>
+          <SectionTitle>{sectionName}</SectionTitle>
         </BlurFade>
         <div className="flex flex-col gap-6">
           {DATA.certifications.map((cert, index) => (

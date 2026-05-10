@@ -1,24 +1,35 @@
+"use client";
 import BlurFade from "@/components/magicui/blur-fade";
 import { ProjectCard } from "@/components/project-card";
-import { DATA } from "@/data/resume";
 
 import { SectionTitle } from "@/components/ui/section-title";
+import { useLanguage } from "@/context/language-context";
 
 const BLUR_FADE_DELAY = 0.04;
 
 export default function ProjectsSection() {
+  const { data: DATA, language } = useLanguage();
+  const sectionName = language === "en" ? "Projects" : "Projets";
+  const sectionSubtitle =
+    language === "en"
+      ? "Check out my latest work"
+      : "Découvrez mes derniers travaux";
+  const sectionDescription =
+    language === "en"
+      ? "I have worked on a variety of projects, from simple websites to complex web applications. Here are a few of my favorites."
+      : "J'ai travaillé sur une variété de projets, allant de simples sites web à des applications web complexes. Voici quelques-uns de mes favoris.";
+
   return (
     <section id="projects">
-      <div className="flex min-h-0 flex-col gap-y-8 max-w-2xl mx-auto">
+      <div className="flex min-h-0 flex-col gap-y-8 max-w-3xl mx-auto">
         <div className="flex flex-col gap-y-4 items-center justify-center">
-          <SectionTitle>My Projects</SectionTitle>
+          <SectionTitle>{sectionName}</SectionTitle>
           <div className="flex flex-col gap-y-3 items-center justify-center">
             <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl">
-              Check out my latest work
+              {sectionSubtitle}
             </h2>
             <p className="text-muted-foreground md:text-lg/relaxed lg:text-base/relaxed xl:text-lg/relaxed text-balance text-center">
-              I&apos;ve worked on a variety of projects, from simple websites to
-              complex web applications. Here are a few of my favorites.
+              {sectionDescription}
             </p>
           </div>
         </div>

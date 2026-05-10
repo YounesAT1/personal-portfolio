@@ -1,16 +1,20 @@
 /* eslint-disable @next/next/no-img-element */
+"use client";
 import BlurFade from "@/components/magicui/blur-fade";
 import { SectionTitle } from "@/components/ui/section-title";
-import { DATA } from "@/data/resume";
+import { useLanguage } from "@/context/language-context";
 
 const BLUR_FADE_DELAY = 0.04;
 
 export default function SkillsSection() {
+  const { data: DATA, language } = useLanguage();
+  const sectionTitle =
+    language === "en" ? "Skills & Tools" : "Compétences & Outils";
   return (
     <section id="skills">
-      <div className="flex min-h-0 flex-col gap-y-4 max-w-2xl mx-auto">
+      <div className="flex min-h-0 flex-col gap-y-4 max-w-3xl mx-auto">
         <BlurFade delay={BLUR_FADE_DELAY * 9}>
-          <SectionTitle>Skills & Tools</SectionTitle>
+          <SectionTitle>{sectionTitle}</SectionTitle>
         </BlurFade>
         <div className="flex flex-wrap gap-2">
           {DATA.skills.map((skill, id) => (

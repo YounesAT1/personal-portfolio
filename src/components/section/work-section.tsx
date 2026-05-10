@@ -6,12 +6,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { DATA } from "@/data/resume";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import BlurFade from "../magicui/blur-fade";
 import { SectionTitle } from "../ui/section-title";
+import { useLanguage } from "@/context/language-context";
 
 function LogoImage({ src, alt }: { src: string; alt: string }) {
   const [imageError, setImageError] = useState(false);
@@ -37,14 +37,18 @@ function LogoImage({ src, alt }: { src: string; alt: string }) {
 export default function WorkSection() {
   const BLUR_FADE_DELAY = 0.04;
 
+  const { data: DATA, language } = useLanguage();
+  const sectionTitle =
+    language === "en" ? "Work Experience" : "Expérience Professionnelle";
+
   return (
     <BlurFade delay={BLUR_FADE_DELAY * 4}>
-      <SectionTitle>Work Experience</SectionTitle>
+      <SectionTitle>{sectionTitle}</SectionTitle>
 
       <Accordion
         type="single"
         collapsible
-        className="w-full grid gap-6 max-w-2xl mx-auto mt-6"
+        className="w-full grid gap-6 max-w-3xl mx-auto mt-6"
       >
         {DATA.work.map((work) => (
           <AccordionItem

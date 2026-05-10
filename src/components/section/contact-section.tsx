@@ -1,9 +1,10 @@
+"use client";
 import Link from "next/link";
-import { DATA } from "@/data/resume";
-import { FlickeringGrid } from "../magicui/flickering-grid";
 import { DotPattern } from "../ui/dot-pattern";
+import { useLanguage } from "@/context/language-context";
 
 export default function ContactSection() {
+  const { data: DATA, language } = useLanguage();
   return (
     <>
       <style>{`
@@ -75,7 +76,7 @@ export default function ContactSection() {
         }
       `}</style>
 
-      <div className="relative max-w-2xl mx-auto mt-3">
+      <div className="relative max-w-3xl mx-auto mt-3">
         <div className="absolute inset-x-0 top-0 h-1/2 rounded-2xl overflow-hidden pointer-events-none">
           <DotPattern
             className="h-full w-full"
@@ -92,7 +93,7 @@ export default function ContactSection() {
               <div className="flex items-center gap-2.5">
                 <span className="cs-dot inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
                 <span className="text-[11px] tracking-[0.14em] uppercase text-muted-foreground">
-                  Available for work
+                  {language === "en" ? "Get in Touch" : "Contactez-moi"}
                 </span>
               </div>
               <div className="space-y-2.5">
@@ -116,7 +117,7 @@ export default function ContactSection() {
 
               <div className="space-y-4">
                 <p className="text-[11px] tracking-[0.15em] uppercase text-muted-foreground">
-                  Profiles
+                  {language === "en" ? "Socials" : "Réseaux sociaux"}
                 </p>
                 <div className="flex flex-wrap gap-x-7 gap-y-3">
                   {Object.entries(DATA.contact.social).map(([name, social]) => (
@@ -139,7 +140,11 @@ export default function ContactSection() {
                 href={`mailto:${DATA.contact.email}`}
                 className="cs-cta group flex items-center justify-between w-full rounded-xl border border-border px-6 py-4"
               >
-                <span className="text-sm font-medium">Send me a message</span>
+                <span className="text-sm font-medium">
+                  {language === "en"
+                    ? "Send me a message"
+                    : "Envoyez-moi un message"}
+                </span>
                 <span className="cs-arrow text-xl">→</span>
               </Link>
             </div>

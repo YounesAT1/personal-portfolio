@@ -1,15 +1,24 @@
+"use client";
 import BlurFade from "@/components/magicui/blur-fade";
 import BlurFadeText from "@/components/magicui/blur-fade-text";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Highlighter } from "@/components/ui/highlighter";
-import { DATA } from "@/data/resume";
+import { useLanguage } from "@/context/language-context";
 
 const BLUR_FADE_DELAY = 0.04;
 
 export default function HeroSection() {
+  const { data: DATA, language } = useLanguage();
+
+  const salutation = language === "en" ? "Hi, I'm" : "Salut, je suis";
+  const role =
+    language === "en"
+      ? "Full Stack Developer (Next.js/React.js - Java)"
+      : "Développeur Full Stack (Next.js/React.js - Java)";
+
   return (
     <section id="hero">
-      <div className="mx-auto w-full max-w-2xl space-y-8">
+      <div className="mx-auto w-full max-w-3xl space-y-8">
         <div className="gap-2 gap-y-6 flex flex-col md:flex-row justify-between">
           <div className="gap-2 flex flex-col order-2 md:order-1">
             <div className="flex items-center gap-4">
@@ -17,11 +26,11 @@ export default function HeroSection() {
                 delay={BLUR_FADE_DELAY}
                 className="text-3xl font-semibold tracking-tighter sm:text-3xl lg:text-3xl"
                 yOffset={8}
-                text={`Hi, I'm ${DATA.name.split(" ")[1]}`}
+                text={`${salutation} ${DATA.name.split(" ")[1]}`}
               />
               <Highlighter action="underline" color="#87CEFA">
                 <p className="text-sm font-semibold text-blue-950 dark:text-blue-100">
-                  Full Stack Developer (Next.js/React.js - Java)
+                  {role}
                 </p>
               </Highlighter>
             </div>

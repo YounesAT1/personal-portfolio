@@ -1,20 +1,22 @@
+"use client";
 import BlurFade from "@/components/magicui/blur-fade";
 import { SectionTitle } from "@/components/ui/section-title";
-import { DATA } from "@/data/resume";
+import { useLanguage } from "@/context/language-context";
 import ReactCountryFlag from "react-country-flag";
 
 const BLUR_FADE_DELAY = 0.04;
 
-const LANG_CODES: Record<string, string> = {
-  Arabic: "MA",
-  French: "FR",
-  English: "GB",
-};
+function flagToCountryCode(flag: string): string {
+  const codePoints = [...flag].map((c) => c.codePointAt(0)! - 0x1f1e6);
+  return String.fromCharCode(...codePoints.map((n) => n + 65));
+}
 
 export default function LanguagesSection() {
+  const { data: DATA } = useLanguage();
+
   return (
     <section id="languages">
-      <div className="flex min-h-0 flex-col gap-y-4 max-w-2xl mx-auto">
+      <div className="flex min-h-0 flex-col gap-y-4 max-w-3xl mx-auto">
         <BlurFade delay={BLUR_FADE_DELAY * 10.5}>
           <SectionTitle>Languages</SectionTitle>
         </BlurFade>
@@ -27,7 +29,7 @@ export default function LanguagesSection() {
               <div className="border bg-background border-border ring-border/20 rounded-xl h-10 w-full px-4 flex items-center justify-between">
                 <span className="text-foreground text-sm font-medium flex items-center gap-2">
                   <ReactCountryFlag
-                    countryCode={LANG_CODES[lang.name] ?? "UN"}
+                    countryCode={flagToCountryCode(lang.flag)}
                     svg
                     style={{ width: "1.2em", height: "1.2em" }}
                   />
