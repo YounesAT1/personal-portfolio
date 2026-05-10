@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { allPosts } from "content-collections";
-import { DATA } from "@/data/resume";
 import { resolveImageUrl } from "@/lib/utils";
+import { DATA } from "@/data/me";
 
 export const runtime = "edge";
 
