@@ -1,0 +1,398 @@
+---
+title: "Conception de systèmes frontend avec Next.js & TypeScript"
+publishedAt: "2025-05-08"
+updatedAt: "2025-05-08"
+author: "AIT-TALB YOUNES"
+summary: "Un guide pratique sur les décisions architecturales, les stratégies de rendu, les contrats de données et les patterns structurels qui permettent aux applications Next.js + TypeScript de passer à l'échelle — sans devenir un cauchemar de maintenance."
+image: "https://images.unsplash.com/photo-1618477388954-7852f32655ec?w=800&h=192&fit=crop"
+---
+
+# Conception de systèmes frontend avec Next.js & TypeScript
+
+La plupart des tutoriels frontend vous montrent _comment_ utiliser une fonctionnalité. La conception de systèmes pose une question différente : _où_ vit cette fonctionnalité, _pourquoi_ se rend-elle de cette façon, et _que_ se passe-t-il quand l'équipe grandit à dix personnes et que la base de code triple de taille ? L'écart entre un projet qui fonctionne et un projet qui passe à l'échelle est presque toujours architectural — pas technique.
+
+Ce sont les décisions que je prends délibérément au début de chaque projet Next.js, et que je revisite quand une base de code commence à montrer des signes de tension. Aucune n'est exotique. Mais appliquées de manière cohérente, elles rendent une base de code <mark>prévisible, navigable et sûre à modifier</mark>.
+
+<MediaContainer
+  src="https://images.unsplash.com/photo-1618477388954-7852f32655ec?w=1200&fit=crop"
+  alt="Diagramme d'architecture système sur un écran"
+/>
+
+---
+
+## 1. Définir la stratégie de rendu par route — pas par projet
+
+La première erreur que font les équipes avec Next.js est de traiter le rendu comme un paramètre global. En réalité, chaque route a des exigences différentes en matière de fraîcheur des données, de besoins SEO et de niveaux d'interactivité. L'architecture commence par mapper explicitement les routes aux stratégies.
+
+Il existe quatre stratégies, chacune avec un cas d'usage clair :
+
+```ts
+// app/marketing/page.tsx — Statique : construit une fois, mis en cache CDN, le plus rapide
+// Pas d'options fetch = statique par défaut dans l'App Router
+export default async function MarketingPage() {
+  const data = await fetch("/api/content").then((r) => r.json());
+  return <LandingPage data={data} />;
+}
+
+// app/products/[id]/page.tsx — ISR : revalidé selon un calendrier
+async function getProduct(id: string) {
+  return fetch(`/api/products/${id}`, {
+    next: { revalidate: 3600 }, // fraîche toutes les heures
+  }).then((r) => r.json());
+}
+
+// app/dashboard/page.tsx — SSR : par requête, spécifique à l'utilisateur
+export const dynamic = "force-dynamic";
+async function DashboardPage() {
+  const session = await getServerSession(); // lit les cookies, headers
+  const data = await getUserData(session.userId);
+  return <Dashboard data={data} />;
+}
+
+// app/dashboard/chart.tsx — CSR : interactif, post-hydratation
+"use client";
+export function LiveChart() {
+  const { data } = useQuery({ queryKey: ["metrics"], queryFn: fetchMetrics });
+  return <Chart data={data} />;
+}
+```
+
+> **Règle pratique :** Commencez avec la stratégie la plus statique qui fournit encore des données correctes, puis évoluez vers le dynamique uniquement quand les exigences de fraîcheur l'imposent. Les pages statiques qui font semblant d'avoir besoin de SSR sont la principale cause de coûts serveur évitables.
+
+Le moment où cela devient le plus utile est lors d'une revue de conception. Avant qu'une fonctionnalité soit construite, demandez : quelle est la vétusté maximale acceptable pour ces données ? La réponse détermine la stratégie.
+
+---
+
+## 2. Typer les données à la frontière — nulle part ailleurs
+
+La partie la plus fragile de tout système frontend est la jonction entre votre code et une API externe. C'est là que `any` tend à s'infiltrer, et là que les crashs à l'exécution prennent leur source. La solution est de valider et typer les données entrantes exactement une fois — au point où elles entrent dans votre système — et de leur faire confiance partout ailleurs.
+
+```ts
+// lib/schemas/user.schema.ts
+import { z } from "zod";
+
+export const UserSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1),
+  email: z.string().email(),
+  role: z.enum(["admin", "editor", "viewer"]),
+  createdAt: z.string().datetime(),
+});
+
+export type User = z.infer<typeof UserSchema>;
+
+export const UserListSchema = z.object({
+  data: z.array(UserSchema),
+  total: z.number(),
+  page: z.number(),
+});
+
+export type UserList = z.infer<typeof UserListSchema>;
+```
+
+Chaque fonction fetch qui touche une API externe passe par un parse de schéma avant de retourner :
+
+```ts
+// features/users/api.ts
+import { UserListSchema, type UserList } from "@/lib/schemas/user.schema";
+import type { Result } from "@/lib/types";
+
+export async function getUsers(page: number): Promise<Result<UserList>> {
+  try {
+    const res = await fetch(`/api/users?page=${page}`, { cache: "no-store" });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    const raw = await res.json();
+    const parsed = UserListSchema.safeParse(raw);
+    if (!parsed.success) return { ok: false, error: "Forme d'API inattendue" };
+    return { ok: true, value: parsed.data };
+  } catch {
+    return { ok: false, error: "Erreur réseau" };
+  }
+}
+```
+
+Tout ce qui est en aval de cette fonction est entièrement typé, sans cast `as` et sans `any`. Le schéma est aussi la documentation vivante de ce que l'API retourne réellement — plus fiable que n'importe quelle page Notion.
+
+---
+
+## 3. Modéliser les props des composants comme des unions discriminées
+
+Le type de props d'un composant est son contrat. Des types de props vagues — des champs optionnels qui n'ont de sens que dans certaines combinaisons, des flags booléens qui interagissent entre eux — sont à l'origine de la plupart des bugs au niveau des composants.
+
+```ts
+// ❌ Ambigu — quelles props vont ensemble ? Que signifie `isLoading` avec `error` ?
+interface DataCardProps {
+  title: string;
+  value?: number;
+  isLoading?: boolean;
+  error?: string;
+  isEmpty?: boolean;
+}
+
+// ✅ Honnête — chaque état est explicite et autonome
+type DataCardProps =
+  | { state: "loading"; title: string }
+  | { state: "error"; title: string; message: string }
+  | { state: "empty"; title: string }
+  | { state: "success"; title: string; value: number; trend?: number };
+
+export function DataCard(props: DataCardProps) {
+  if (props.state === "loading") return <CardSkeleton title={props.title} />;
+  if (props.state === "error") return <CardError message={props.message} />;
+  if (props.state === "empty") return <CardEmpty title={props.title} />;
+  // TypeScript sait que `props.value` est un nombre ici — pas besoin de chaînage optionnel
+  return <CardValue title={props.title} value={props.value} />;
+}
+```
+
+Ce pattern élimine toute une catégorie d'états impossibles. Vous ne pouvez plus passer accidentellement `value` sans `state: "success"`, et TypeScript applique l'exhaustivité dans chaque switch ou conditionnel.
+
+> **Règle pratique :** Si vous vous surprenez à écrire des conditions `prop1 && !prop2` à l'intérieur d'un composant, le type de props n'est probablement pas assez discriminé.
+
+---
+
+## 4. Séparer l'état serveur de l'état UI
+
+L'état serveur et l'état UI sont fondamentalement des choses différentes. L'état serveur vit sur un serveur distant, peut devenir obsolète, et doit être récupéré, mis en cache et invalidé. L'état UI vit dans le navigateur et change de manière synchrone en réponse aux actions de l'utilisateur. Les mélanger dans le même store est l'une des erreurs architecturales les plus courantes dans les applications React.
+
+Le modèle plus propre :
+
+```ts
+// ✅ État serveur — géré par TanStack Query
+// features/users/hooks/useUsers.ts
+export function useUsers(filters: UserFilters) {
+  return useQuery({
+    queryKey: ["users", filters],
+    queryFn: () => getUsers(filters),
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useUpdateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: updateUser,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
+    // Mise à jour optimiste pour un retour instantané
+    onMutate: async (updated) => {
+      await qc.cancelQueries({ queryKey: ["users"] });
+      const prev = qc.getQueryData(["users"]);
+      qc.setQueryData(["users"], (old: User[]) =>
+        old.map((u) => (u.id === updated.id ? { ...u, ...updated } : u)),
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["users"], ctx.prev);
+    },
+  });
+}
+
+// ✅ État UI — local ou Zustand pour les besoins inter-composants
+// features/users/store/userFilters.store.ts
+interface UserFiltersState {
+  search: string;
+  role: User["role"] | "all";
+  page: number;
+  setSearch: (v: string) => void;
+  setRole: (v: UserFiltersState["role"]) => void;
+  setPage: (v: number) => void;
+}
+
+export const useUserFilters = create<UserFiltersState>()((set) => ({
+  search: "",
+  role: "all",
+  page: 1,
+  setSearch: (search) => set({ search, page: 1 }),
+  setRole: (role) => set({ role, page: 1 }),
+  setPage: (page) => set({ page }),
+}));
+```
+
+Les deux stores ne se parlent jamais directement. Le composant les compose :
+
+```ts
+export function UsersPage() {
+  const { search, role, page } = useUserFilters();
+  const { data, isLoading } = useUsers({ search, role, page });
+  // ...
+}
+```
+
+---
+
+## 5. Imposer une structure de dossiers orientée fonctionnalité
+
+La structure de dossiers la plus courante que je vois dans les projets Next.js est orientée par type : un dossier `components/` avec tout dedans, un dossier `hooks/` avec tous les hooks, un dossier `utils/` qui devient un fourre-tout. Cela fonctionne à petite échelle et s'effondre à moyenne échelle.
+
+L'alternative est de regrouper par _domaine fonctionnel_. Tout ce qui concerne les « utilisateurs » — ses composants, hooks, fonctions API, types et schémas — vit ensemble :
+
+```
+src/
+├── app/                        # Routage Next.js uniquement
+│   ├── (auth)/
+│   ├── dashboard/
+│   │   ├── page.tsx            # Mince — compose les composants de fonctionnalité
+│   │   ├── loading.tsx
+│   │   └── error.tsx
+│   └── api/                    # Route Handlers
+│
+├── features/                   # Un dossier par domaine
+│   ├── users/
+│   │   ├── components/         # UserCard, UserTable, UserFilters
+│   │   ├── hooks/              # useUsers, useUpdateUser
+│   │   ├── api.ts              # getUsers, updateUser, deleteUser
+│   │   ├── schema.ts           # Schémas Zod + types inférés
+│   │   └── index.ts            # API publique de la fonctionnalité
+│   └── orders/
+│       └── ...
+│
+├── components/                 # UI partagée, sans lien avec un domaine
+│   └── ui/                     # Button, Badge, Input, Modal
+│
+└── lib/                        # Config, clients, utilitaires globaux
+    ├── api-client.ts
+    ├── auth.ts
+    └── types.ts                # Result<T>, Pagination<T>, etc.
+```
+
+La contrainte clé : les fonctionnalités importent depuis `lib/` et `components/ui/`, mais jamais les unes des autres. Si deux fonctionnalités ont besoin de partager quelque chose, cela est promu vers `lib/` ou `components/`. Cela maintient le graphe de dépendances propre et rend les fonctionnalités supprimables.
+
+```ts
+// features/users/index.ts — la seule surface publique de cette fonctionnalité
+export { UserCard } from "./components/UserCard";
+export { UserTable } from "./components/UserTable";
+export { useUsers, useUpdateUser } from "./hooks/useUsers";
+export type { User } from "./schema";
+
+// Partout ailleurs
+import { UserTable } from "@/features/users"; // ✅ frontière propre
+import { UserTable } from "@/features/users/components/UserTable"; // ❌ interne
+```
+
+---
+
+## 6. Gérer les erreurs à chaque couche — et les typer
+
+La gestion des erreurs est la partie de l'architecture frontend le plus souvent conçue sous pression de délais et le moins souvent revisitée. Le résultat est un mélange de blocs `try/catch` avec `console.error`, des échecs silencieux et des états de chargement qui ne se résolvent jamais.
+
+Un modèle d'erreur cohérent comporte trois couches.
+
+**Couche 1 : Le type `Result` pour les fonctions qui peuvent échouer**
+
+```ts
+// lib/types.ts
+export type Result<T, E = string> =
+  | { ok: true; value: T }
+  | { ok: false; error: E };
+```
+
+**Couche 2 : Les error boundaries React pour les sous-arbres de composants**
+
+```tsx
+// components/ErrorBoundary.tsx
+"use client";
+export default function ErrorBoundary({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  return (
+    <div role="alert">
+      <p>Une erreur est survenue.</p>
+      <button onClick={reset}>Réessayer</button>
+    </div>
+  );
+}
+
+// app/dashboard/error.tsx — co-localisé avec la route
+export { default } from "@/components/ErrorBoundary";
+```
+
+**Couche 3 : Erreurs API typées pour le retour des mutations**
+
+```ts
+// Un ensemble connu de codes d'erreur que votre API peut retourner
+type ApiError =
+  | { code: "NOT_FOUND"; resourceId: string }
+  | { code: "UNAUTHORIZED" }
+  | { code: "VALIDATION_FAILED"; fields: Record<string, string> };
+
+// Les afficher à l'utilisateur de manière significative
+function getErrorMessage(error: ApiError): string {
+  switch (error.code) {
+    case "NOT_FOUND":
+      return `La ressource ${error.resourceId} est introuvable.`;
+    case "UNAUTHORIZED":
+      return "Vous n'avez pas la permission d'effectuer cette action.";
+    case "VALIDATION_FAILED":
+      return Object.values(error.fields).join(", ");
+  }
+}
+```
+
+Quand les erreurs sont typées, la vérification d'exhaustivité de TypeScript garantit que vous ne manquez jamais silencieusement un nouveau code d'erreur quand l'API évolue.
+
+---
+
+## 7. Rendre les décisions de performance explicites
+
+La performance dans Next.js n'est pas automatique — c'est un ensemble de choix délibérés faits au niveau du composant. Les deux plus impactants sont le code splitting et la prévention des re-rendus.
+
+**Code splitting — ne charger que ce dont la route actuelle a besoin :**
+
+```tsx
+import dynamic from "next/dynamic";
+
+// Bibliothèque de graphiques lourde — chargée uniquement quand le composant est monté
+const RevenueChart = dynamic(
+  () => import("@/features/analytics/RevenueChart"),
+  {
+    loading: () => <ChartSkeleton />,
+    ssr: false, // Chart.js a besoin du DOM
+  },
+);
+
+// Visionneuse PDF — chargée uniquement quand l'utilisateur ouvre un document
+const PDFViewer = dynamic(() => import("@/components/PDFViewer"), {
+  loading: () => <p>Chargement de la visionneuse...</p>,
+});
+```
+
+**Prévention des re-rendus — profilez d'abord, corrigez ensuite :**
+
+```tsx
+// ❌ Nouvelle référence d'objet à chaque rendu — casse memo
+<UserCard config={{ theme: "dark", compact: true }} />;
+
+// ✅ Référence stable — memo fonctionne
+const cardConfig = useMemo(() => ({ theme: "dark", compact: true }), []);
+<UserCard config={cardConfig} />;
+
+// ✅ Callback stable — l'enfant ne se re-rend pas lors des mises à jour du parent
+const handleDelete = useCallback(
+  (id: string) => deleteUser(id),
+  [deleteUser], // deleteUser de useMutation est déjà stable
+);
+```
+
+> **Règle pratique :** Ouvrez le Profiler de React DevTools avant d'atteindre pour `memo`, `useMemo` ou `useCallback`. La mémoïsation prématurée ajoute de la complexité sans bénéfice. Mesurez le problème, puis corrigez-le.
+
+---
+
+## Conclusion
+
+La conception de systèmes frontend dans Next.js ne consiste pas à connaître chaque API — il s'agit de prendre un petit nombre de décisions architecturales judicieuses et de les appliquer de manière cohérente dans toute la base de code. En résumé :
+
+- **Mappez chaque route à une stratégie de rendu** avant de la construire. Statique → ISR → SSR → CSR, aussi dynamique que nécessaire.
+- **Validez les données externes à la frontière** avec Zod. Faites confiance au type partout ailleurs.
+- **Modélisez les props des composants comme des unions discriminées** pour rendre les états impossibles irreprésentables.
+- **Maintenez l'état serveur et l'état UI séparés** — TanStack Query pour les données distantes, Zustand ou l'état local pour les interactions UI.
+- **Structurez par domaine fonctionnel**, pas par type de fichier. Gardez les fonctionnalités supprimables et les frontières explicites.
+- **Typez vos erreurs** à chaque couche. Une erreur typée est une erreur que vous pouvez gérer ; une erreur non typée est une erreur qui vous surprendra en production.
+- **Prenez les décisions de performance délibérément** — mesurez avec le profiler, puis appliquez le code splitting et la mémoïsation là où ils ont vraiment un impact.
+
+Un frontend bien conçu ne semble pas sur-ingénié — il semble juste être la façon évidente dont le code devrait être organisé. L'objectif est une base de code dans laquelle un nouveau coéquipier peut trouver n'importe quel fichier en moins de trente secondes, comprendre ce qu'il fait en moins de deux minutes, et le modifier en toute sécurité en moins d'une heure.

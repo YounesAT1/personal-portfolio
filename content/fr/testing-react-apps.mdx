@@ -1,0 +1,770 @@
+---
+title: "Tester des applications React : un guide pratique"
+publishedAt: "2025-12-14"
+updatedAt: "2024-12-14"
+author: "YOUNES AIT-TALB"
+summary: "Des tests unitaires aux tests E2E — un guide pratique et approfondi pour construire une suite de tests qui vous donne une vraie confiance dans vos applications React, avec des exemples concrets couvrant React Testing Library, Vitest, MSW et Playwright."
+image: "https://images.unsplash.com/photo-1516116216624-53e697fedbea?w=800&h=192&fit=crop"
+---
+
+# Tester des applications React : un guide pratique
+
+Les tests sont votre filet de sécurité — ils vous permettent de refactoriser sereinement et de livrer des changements sans crainte. Mais une suite de tests mal conçue peut devenir un fardeau plus lourd qu'une absence totale de tests : lente, fragile, pleine de faux négatifs qui crient au loup jusqu'à ce que votre équipe commence à les ignorer.
+
+L'objectif n'est pas « le plus de tests possible » ni même « 100 % de couverture ». La couverture est une métrique indicative facilement contournée — vous pouvez couvrir chaque ligne de code et rater les bugs qui comptent vraiment. Le vrai objectif est la <mark>**confiance dans les chemins critiques**</mark> : les flux que vos utilisateurs empruntent réellement, la logique dont votre activité dépend concrètement.
+
+Ce guide est un parcours pratique du test d'applications React à chaque couche — unitaire, intégration et bout en bout — avec des exemples réels, des compromis honnêtes et les habitudes qui distinguent systématiquement une suite de tests utile d'une suite douloureuse.
+
+---
+
+## Le Trophée du Test (pas la Pyramide)
+
+Vous avez probablement déjà vu la Pyramide des Tests — beaucoup de tests unitaires à la base, moins de tests d'intégration, et une poignée de tests E2E au sommet. C'est une heuristique raisonnable, mais elle pousse de nombreuses équipes à écrire des centaines de tests unitaires pour des détails d'implémentation qui changent constamment, tout en sous-investissant dans les tests d'intégration qui reflètent réellement la façon dont les utilisateurs se servent de l'application.
+
+Le **Trophée du Test** de Kent C. Dodds est un meilleur modèle mental pour React :
+
+```
+        /‾‾‾‾‾‾‾‾‾‾‾\
+       /    E2E       \       ← Quelques chemins heureux critiques
+      /‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\
+     / Tests d'intégration \ ← Le gros de votre suite
+    /‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\
+   /    Tests unitaires     \  ← Fonctions pures, logique complexe
+  /‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾\
+ /   Analyse statique         \ ← TypeScript, ESLint (toujours actifs)
+```
+
+L'intuition clé est que **les tests d'intégration vous donnent le plus de confiance par ligne de code de test**. Ils testent un composant avec ses vraies dépendances (récupération de données, état, composants enfants) de la façon dont un utilisateur interagirait réellement avec lui — sans la fragilité de connecter un vrai navigateur et une vraie base de données.
+
+Cela ne signifie pas ignorer les tests unitaires. Les fonctions pures, la logique de validation, les hooks personnalisés et les règles métier complexes méritent tous des tests unitaires ciblés. Cela signifie ne pas substituer les tests unitaires _aux_ tests d'intégration en croyant avoir terminé.
+
+---
+
+## La Chaîne d'Outils
+
+Avant d'écrire le moindre test, choisissez une stack qui ne vous résistera pas :
+
+| Outil                         | Rôle               | Pourquoi celui-là                                                              |
+| ----------------------------- | ------------------ | ------------------------------------------------------------------------------ |
+| **Vitest**                    | Lanceur de tests   | ESM natif, HMR instantané, API Jest identique — rapide                         |
+| **React Testing Library**     | Test de composants | Force des assertions centrées utilisateur, sans fuite d'implémentation         |
+| **MSW (Mock Service Worker)** | Simulation d'API   | Intercepte au niveau réseau, fonctionne dans le navigateur et Node             |
+| **Playwright**                | Tests E2E          | Multi-navigateur, rapide, excellente DX, TypeScript natif                      |
+| **jest-axe**                  | Accessibilité      | Détecte les violations a11y programmables dans les tests unitaires/intégration |
+
+```bash
+# Installer la stack complète
+npm install --save-dev vitest @vitest/coverage-v8 jsdom
+npm install --save-dev @testing-library/react @testing-library/user-event @testing-library/jest-dom
+npm install --save-dev msw
+npm install --save-dev playwright @playwright/test
+npm install --save-dev jest-axe
+```
+
+```typescript title="vitest.config.ts"
+import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: ["./src/test/setup.ts"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "lcov"],
+      exclude: ["node_modules", "src/test"],
+    },
+  },
+});
+```
+
+```typescript title="src/test/setup.ts"
+import "@testing-library/jest-dom";
+import { server } from "./mocks/server";
+
+// Démarrer MSW avant tous les tests, réinitialiser les handlers entre les tests
+beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+```
+
+---
+
+## Couche 1 : Tests Unitaires — La Logique en Isolation
+
+Les tests unitaires brillent quand ce que vous testez n'a aucune dépendance sur React ou le DOM — fonctions pures, utilitaires, logique de validation, formateurs, reducers et hooks personnalisés.
+
+La discipline clé : tester le _résultat_ pour une _entrée_ donnée, pas l'implémentation. Si vous vous retrouvez à tester des variables internes ou à appeler des méthodes privées, vous testez la mauvaise chose.
+
+### Fonctions Pures
+
+```typescript title="lib/price.ts"
+export function formatPrice(cents: number, currency = "USD"): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+  }).format(cents / 100);
+}
+
+export function applyDiscount(
+  priceCents: number,
+  discountPercent: number,
+): number {
+  if (discountPercent < 0 || discountPercent > 100) {
+    throw new RangeError("La remise doit être comprise entre 0 et 100");
+  }
+  return Math.round(priceCents * (1 - discountPercent / 100));
+}
+```
+
+```typescript title="lib/price.test.ts"
+import { describe, it, expect } from "vitest";
+import { formatPrice, applyDiscount } from "./price";
+
+describe("formatPrice", () => {
+  it("formate les centimes en chaîne de devise USD", () => {
+    expect(formatPrice(1999)).toBe("$19.99");
+    expect(formatPrice(100000)).toBe("$1,000.00");
+    expect(formatPrice(0)).toBe("$0.00");
+  });
+
+  it("respecte l'argument de devise", () => {
+    expect(formatPrice(1999, "EUR")).toBe("€19.99");
+  });
+});
+
+describe("applyDiscount", () => {
+  it("réduit le prix du pourcentage donné", () => {
+    expect(applyDiscount(10000, 20)).toBe(8000); // 20% de remise sur 100€ = 80€
+    expect(applyDiscount(10000, 0)).toBe(10000); // 0% de remise = aucun changement
+    expect(applyDiscount(10000, 100)).toBe(0); // 100% de remise = gratuit
+  });
+
+  it("arrondit au centime le plus proche", () => {
+    expect(applyDiscount(999, 10)).toBe(899); // 9,99€ - 10% = 8,99€
+  });
+
+  it("lève une erreur pour les valeurs de remise hors limites", () => {
+    expect(() => applyDiscount(1000, -1)).toThrow(RangeError);
+    expect(() => applyDiscount(1000, 101)).toThrow(RangeError);
+  });
+});
+```
+
+### Hooks Personnalisés
+
+Utilisez `renderHook` de React Testing Library pour tester les hooks en isolation, avec le support complet du cycle de vie React :
+
+```typescript title="hooks/useCounter.ts"
+import { useState, useCallback } from "react";
+
+interface UseCounterOptions {
+  initialValue?: number;
+  min?: number;
+  max?: number;
+}
+
+export function useCounter({
+  initialValue = 0,
+  min = -Infinity,
+  max = Infinity,
+}: UseCounterOptions = {}) {
+  const [count, setCount] = useState(initialValue);
+
+  const increment = useCallback(
+    () => setCount((c) => Math.min(c + 1, max)),
+    [max],
+  );
+
+  const decrement = useCallback(
+    () => setCount((c) => Math.max(c - 1, min)),
+    [min],
+  );
+
+  const reset = useCallback(() => setCount(initialValue), [initialValue]);
+
+  return { count, increment, decrement, reset };
+}
+```
+
+```typescript title="hooks/useCounter.test.ts"
+import { renderHook, act } from "@testing-library/react";
+import { useCounter } from "./useCounter";
+
+describe("useCounter", () => {
+  it("s'initialise avec la valeur donnée", () => {
+    const { result } = renderHook(() => useCounter({ initialValue: 5 }));
+    expect(result.current.count).toBe(5);
+  });
+
+  it("incrémente et décrémente correctement", () => {
+    const { result } = renderHook(() => useCounter());
+    act(() => result.current.increment());
+    expect(result.current.count).toBe(1);
+    act(() => result.current.decrement());
+    expect(result.current.count).toBe(0);
+  });
+
+  it("ne dépasse pas la limite maximale", () => {
+    const { result } = renderHook(() =>
+      useCounter({ initialValue: 9, max: 10 }),
+    );
+    act(() => result.current.increment());
+    act(() => result.current.increment()); // doit être bloqué
+    expect(result.current.count).toBe(10);
+  });
+
+  it("ne descend pas en dessous de la limite minimale", () => {
+    const { result } = renderHook(() =>
+      useCounter({ initialValue: 1, min: 0 }),
+    );
+    act(() => result.current.decrement());
+    act(() => result.current.decrement()); // doit être bloqué
+    expect(result.current.count).toBe(0);
+  });
+
+  it("se réinitialise à la valeur initiale", () => {
+    const { result } = renderHook(() => useCounter({ initialValue: 5 }));
+    act(() => result.current.increment());
+    act(() => result.current.reset());
+    expect(result.current.count).toBe(5);
+  });
+});
+```
+
+---
+
+## Couche 2 : Tests d'Intégration — Le Cœur de votre Suite
+
+Les tests d'intégration sont là où vous obtenez le plus de valeur. Vous rendez un vrai composant (ou un petit arbre de composants), vous interagissez avec lui comme le ferait un utilisateur, et vous faites des assertions sur ce que l'utilisateur voit — pas sur l'état interne ni les détails d'implémentation.
+
+La règle d'or de React Testing Library :
+
+> _« Plus vos tests ressemblent à la façon dont votre logiciel est utilisé, plus ils peuvent vous donner confiance. »_
+
+### Requêter comme un Utilisateur
+
+RTL propose une hiérarchie de méthodes de requête. Utilisez-les dans cet ordre :
+
+```typescript
+// 1. Par rôle — le plus accessible, reflète le fonctionnement des lecteurs d'écran
+screen.getByRole("button", { name: /soumettre/i });
+screen.getByRole("textbox", { name: /email/i });
+screen.getByRole("heading", { name: /connexion/i });
+
+// 2. Par texte de label — pour les éléments de formulaire associés à un label
+screen.getByLabelText(/mot de passe/i);
+
+// 3. Par texte de placeholder — quand un label n'est pas présent
+screen.getByPlaceholderText(/rechercher des produits/i);
+
+// 4. Par texte affiché — pour les éléments non interactifs
+screen.getByText(/bienvenue/i);
+
+// 5. Par texte alternatif — pour les images
+screen.getByAltText(/logo de l'entreprise/i);
+
+// 6. Par identifiant de test — dernier recours, quand rien d'autre ne fonctionne
+screen.getByTestId("custom-datepicker");
+```
+
+Préférez `getBy` (lève une erreur si non trouvé) pour les éléments qui doivent être présents, `queryBy` (retourne null) pour les éléments pouvant être absents, et `findBy` (retourne une promesse) pour les éléments qui apparaissent de façon asynchrone.
+
+### Un Vrai Test d'Intégration
+
+Voici un formulaire de connexion — le type de composant qui vaut la peine d'être correctement testé :
+
+```tsx title="components/LoginForm.tsx"
+"use client";
+
+import { useState } from "react";
+import { signIn } from "@/lib/auth";
+
+interface LoginFormProps {
+  onSuccess: (user: { name: string }) => void;
+}
+
+export function LoginForm({ onSuccess }: LoginFormProps) {
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const data = new FormData(e.currentTarget);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const user = await signIn({
+        email: data.get("email") as string,
+        password: data.get("password") as string,
+      });
+      onSuccess(user);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Échec de la connexion");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} aria-label="Connexion">
+      <h1>Connexion</h1>
+
+      {error && <p role="alert">{error}</p>}
+
+      <label htmlFor="email">Email</label>
+      <input id="email" name="email" type="email" required />
+
+      <label htmlFor="password">Mot de passe</label>
+      <input id="password" name="password" type="password" required />
+
+      <button type="submit" disabled={isLoading}>
+        {isLoading ? "Connexion en cours…" : "Se connecter"}
+      </button>
+    </form>
+  );
+}
+```
+
+```typescript title="components/LoginForm.test.tsx"
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
+import { server } from '@/test/mocks/server';
+import { LoginForm } from './LoginForm';
+
+const mockOnSuccess = vi.fn();
+
+function setup() {
+  const user = userEvent.setup();
+  render(<LoginForm onSuccess={mockOnSuccess} />);
+  return {
+    user,
+    emailInput: screen.getByLabelText(/email/i),
+    passwordInput: screen.getByLabelText(/mot de passe/i),
+    submitButton: screen.getByRole('button', { name: /se connecter/i }),
+  };
+}
+
+describe('LoginForm', () => {
+  beforeEach(() => {
+    mockOnSuccess.mockClear();
+  });
+
+  it('affiche le formulaire avec tous les champs requis', () => {
+    setup();
+    expect(screen.getByRole('heading', { name: /connexion/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/mot de passe/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /se connecter/i })).toBeInTheDocument();
+  });
+
+  it('soumet le formulaire et appelle onSuccess avec l\'utilisateur retourné', async () => {
+    // Remplacer le handler MSW par défaut pour ce test spécifique
+    server.use(
+      http.post('/api/auth/signin', () =>
+        HttpResponse.json({ name: 'Younes' })
+      )
+    );
+
+    const { user, emailInput, passwordInput, submitButton } = setup();
+
+    await user.type(emailInput, 'younes@example.com');
+    await user.type(passwordInput, 'motdepassecorrect');
+    await user.click(submitButton);
+
+    await waitFor(() => {
+      expect(mockOnSuccess).toHaveBeenCalledWith({ name: 'Younes' });
+    });
+  });
+
+  it('affiche un état de chargement pendant que la requête est en cours', async () => {
+    // Retarder la réponse pour tester l'état de chargement
+    server.use(
+      http.post('/api/auth/signin', async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return HttpResponse.json({ name: 'Younes' });
+      })
+    );
+
+    const { user, emailInput, passwordInput, submitButton } = setup();
+
+    await user.type(emailInput, 'younes@example.com');
+    await user.type(passwordInput, 'motdepassecorrect');
+    await user.click(submitButton);
+
+    // L'état de chargement doit apparaître immédiatement
+    expect(screen.getByRole('button', { name: /connexion en cours/i })).toBeDisabled();
+
+    // Après la résolution, le texte du bouton doit revenir à la normale
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /se connecter/i })).not.toBeDisabled();
+    });
+  });
+
+  it('affiche un message d\'erreur quand les identifiants sont incorrects', async () => {
+    server.use(
+      http.post('/api/auth/signin', () =>
+        HttpResponse.json(
+          { message: 'Email ou mot de passe invalide' },
+          { status: 401 }
+        )
+      )
+    );
+
+    const { user, emailInput, passwordInput, submitButton } = setup();
+
+    await user.type(emailInput, 'younes@example.com');
+    await user.type(passwordInput, 'mauvaismdp');
+    await user.click(submitButton);
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        /email ou mot de passe invalide/i
+      );
+    });
+
+    // Le bouton doit être réactivé après l'échec
+    expect(submitButton).not.toBeDisabled();
+  });
+
+  it('efface l\'erreur quand l\'utilisateur recommence à taper', async () => {
+    server.use(
+      http.post('/api/auth/signin', () =>
+        HttpResponse.json({ message: 'Email ou mot de passe invalide' }, { status: 401 })
+      )
+    );
+
+    const { user, emailInput, passwordInput, submitButton } = setup();
+
+    await user.type(emailInput, 'younes@example.com');
+    await user.type(passwordInput, 'mauvais');
+    await user.click(submitButton);
+
+    await screen.findByRole('alert');
+
+    // Taper à nouveau doit effacer l'erreur
+    await user.type(passwordInput, 'plusdecaracteres');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});
+```
+
+Remarquez ce que ce test ne fait _pas_ : il n'importe pas et ne simule pas `signIn` directement, n'effectue pas d'assertions sur l'état React, et n'accède pas aux éléments internes du composant. Il se comporte exactement comme un utilisateur — taper, cliquer, observer — et MSW gère la couche réseau.
+
+### Simuler le Réseau avec MSW
+
+MSW intercepte `fetch` et `XMLHttpRequest` au niveau réseau, pas au niveau module. Vos composants utilisent donc leur vrai code de récupération de données — seules les réponses sont contrôlées.
+
+```typescript title="src/test/mocks/handlers.ts"
+import { http, HttpResponse } from "msw";
+
+export const handlers = [
+  // Handlers par défaut — le « chemin heureux » pour chaque endpoint
+  http.post("/api/auth/signin", () =>
+    HttpResponse.json({
+      id: "1",
+      name: "Utilisateur Test",
+      email: "test@example.com",
+    }),
+  ),
+
+  http.get("/api/products", () =>
+    HttpResponse.json({
+      data: [
+        { id: "p1", name: "Produit A", price: 1999 },
+        { id: "p2", name: "Produit B", price: 2999 },
+      ],
+      pagination: { page: 1, total: 2 },
+    }),
+  ),
+
+  http.get("/api/products/:id", ({ params }) =>
+    HttpResponse.json({ id: params.id, name: "Produit A", price: 1999 }),
+  ),
+
+  http.delete(
+    "/api/products/:id",
+    () => new HttpResponse(null, { status: 204 }),
+  ),
+];
+```
+
+```typescript title="src/test/mocks/server.ts"
+import { setupServer } from "msw/node";
+import { handlers } from "./handlers";
+
+export const server = setupServer(...handlers);
+```
+
+Les handlers par défaut couvrent le chemin heureux. Remplacez-les par test pour les états d'erreur, les cas limites ou les scénarios de chargement — puis ils se réinitialisent automatiquement entre les tests grâce à `server.resetHandlers()` dans votre fichier de configuration.
+
+---
+
+## Couche 3 : Tests d'Accessibilité
+
+Les tests d'accessibilité détectent la classe de bugs qui empêchent de vrais utilisateurs — notamment ceux utilisant des lecteurs d'écran, la navigation au clavier ou des affichages à fort contraste — d'utiliser votre application. Ils sont peu coûteux à exécuter et n'ont aucun taux de faux positifs pour les vraies violations.
+
+```typescript title="components/LoginForm.a11y.test.tsx"
+import { render } from '@testing-library/react';
+import { axe, toHaveNoViolations } from 'jest-axe';
+import { LoginForm } from './LoginForm';
+
+expect.extend(toHaveNoViolations);
+
+describe('Accessibilité LoginForm', () => {
+  it('ne présente aucune violation d\'accessibilité détectable', async () => {
+    const { container } = render(
+      <LoginForm onSuccess={() => {}} />
+    );
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+});
+```
+
+`axe` détecte des problèmes tels que : labels de formulaire manquants, contraste de couleurs insuffisant, images sans texte alternatif, éléments interactifs sans nom accessible, rôles ARIA invalides et régions de repère manquantes. Il détecte environ 30 % de tous les problèmes d'accessibilité automatiquement — le reste nécessite des tests manuels avec un lecteur d'écran, mais 30 % gratuitement vaut la peine d'être pris.
+
+---
+
+## Couche 4 : Tests End-to-End avec Playwright
+
+Les tests E2E exécutent votre vraie application dans un vrai navigateur. Ils vous donnent la plus haute fidélité — si un test passe, un vrai utilisateur réussirait — mais ils sont aussi les plus coûteux à exécuter et à maintenir. Gardez la suite petite et concentrée sur les chemins qui comptent le plus.
+
+**Ce qu'il faut tester en E2E :**
+
+- Le flux d'authentification (inscription, connexion, déconnexion)
+- Le parcours utilisateur le plus important (paiement, onboarding, fonctionnalité principale)
+- Les flux critiques de paiement ou de soumission de données
+- Le comportement multi-navigateur pour tout ce qui a déjà été cassé dans un navigateur spécifique
+
+**Ce qu'il ne faut pas tester en E2E :**
+
+- Tout ce qui est déjà couvert par les tests d'intégration
+- Les états d'erreur plus faciles à déclencher via MSW dans les tests d'intégration
+- Les détails de style ou visuels (utilisez les tests de régression visuelle pour cela)
+
+```typescript title="e2e/auth.spec.ts"
+import { test, expect } from "@playwright/test";
+
+test.describe("Authentification", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/connexion");
+  });
+
+  test("l'utilisateur peut se connecter avec des identifiants valides", async ({
+    page,
+  }) => {
+    await page.getByLabel("Email").fill("younes@example.com");
+    await page.getByLabel("Mot de passe").fill("motdepassecorrect");
+    await page.getByRole("button", { name: /se connecter/i }).click();
+
+    // Doit rediriger vers le tableau de bord après une connexion réussie
+    await expect(page).toHaveURL("/tableau-de-bord");
+    await expect(
+      page.getByRole("heading", { name: /bienvenue/i }),
+    ).toBeVisible();
+  });
+
+  test("affiche une erreur avec des identifiants invalides", async ({
+    page,
+  }) => {
+    await page.getByLabel("Email").fill("younes@example.com");
+    await page.getByLabel("Mot de passe").fill("mauvaismdp");
+    await page.getByRole("button", { name: /se connecter/i }).click();
+
+    await expect(page.getByRole("alert")).toContainText(
+      /email ou mot de passe invalide/i,
+    );
+    await expect(page).toHaveURL("/connexion"); // reste sur la page de connexion
+  });
+
+  test("redirige vers la connexion en accédant à une route protégée sans être authentifié", async ({
+    page,
+  }) => {
+    await page.goto("/tableau-de-bord");
+    await expect(page).toHaveURL(/connexion/);
+  });
+});
+```
+
+```typescript title="playwright.config.ts"
+import { defineConfig, devices } from "@playwright/test";
+
+export default defineConfig({
+  testDir: "./e2e",
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  reporter: process.env.CI ? "github" : "html",
+  use: {
+    baseURL: "http://localhost:3000",
+    trace: "on-first-retry",
+    screenshot: "only-on-failure",
+  },
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    { name: "firefox", use: { ...devices["Desktop Firefox"] } },
+    { name: "webkit", use: { ...devices["Desktop Safari"] } },
+    { name: "mobile", use: { ...devices["iPhone 14"] } },
+  ],
+  webServer: {
+    command: "npm run dev",
+    port: 3000,
+    reuseExistingServer: !process.env.CI,
+  },
+});
+```
+
+---
+
+## Bonnes Habitudes et Pièges à Éviter
+
+### Ce qu'il faut faire
+
+**Assertez sur le comportement, pas sur l'implémentation.** Testez ce que les utilisateurs voient et peuvent faire — le texte à l'écran, les boutons qu'ils peuvent cliquer, les messages qui apparaissent. Pas quelles variables d'état ont été définies ni combien de fois une fonction interne a été appelée.
+
+**Utilisez `userEvent` plutôt que `fireEvent`.** `userEvent` simule de vrais événements navigateur incluant focus, blur, keydown, keyup et les événements de pointeur. `fireEvent` déclenche un seul événement synthétique et ignore le reste. La différence compte pour la validation de formulaire, la navigation au clavier, et tout ce qui repose sur des séquences d'événements.
+
+```typescript
+// ❌ fireEvent — déclenche un seul événement synthétique
+fireEvent.change(input, { target: { value: "bonjour" } });
+
+// ✅ userEvent — tape caractère par caractère, déclenche tous les vrais événements
+await userEvent.type(input, "bonjour");
+```
+
+**Simulez à la frontière réseau, pas à la frontière module.** Simuler `import { signIn } from '@/lib/auth'` dans chaque fichier de test signifie que vos tests ne testent plus le chemin de votre composant jusqu'à votre appel API. MSW simule la _réponse réseau_ — votre composant, votre appel fetch, votre gestion des erreurs, tout s'exécute vraiment.
+
+**Concentrez les tests sur un seul scénario par test.** Un test avec 8 assertions testant 4 comportements différents vous dira que quelque chose est cassé mais pas quoi. Un comportement, un test, un message d'échec clair.
+
+### Ce qu'il faut éviter
+
+**Ne testez pas les détails d'implémentation.** Si votre test casse parce que vous avez renommé une variable interne, déplacé une fonction ou refactorisé la structure d'état d'un composant — mais que le comportement visible par l'utilisateur n'a pas changé — le test était mauvais. Les tests doivent survivre aux refactorisations.
+
+```typescript
+// ❌ Teste l'état interne — casse à toute restructuration d'état
+expect(wrapper.state("isLoading")).toBe(true);
+
+// ✅ Teste ce que l'utilisateur voit
+expect(
+  screen.getByRole("button", { name: /connexion en cours/i }),
+).toBeDisabled();
+```
+
+**N'abusez pas des snapshots.** Les tests de snapshot pour de grands arbres de composants échouent constamment pour des changements anodins (ajout d'une classe, changement d'une chaîne, restructuration du markup) et sont mis à jour aveuglément. Ils ajoutent du bruit sans ajouter de signal. Utilisez les snapshots avec parcimonie — pour des sorties petites et stables comme des chaînes formatées ou des structures de données sérialisées, pas pour des arbres de composants entiers.
+
+**Ne parsemez pas `data-testid` partout.** Les identifiants de test sont un dernier recours, pas un premier choix. Si vous ne pouvez pas trouver un élément par son rôle, son label ou son texte, c'est souvent le signe que l'élément est inaccessible — corriger le problème d'accessibilité résout simultanément le problème de testabilité.
+
+**Ne simulez pas les timers sans les réinitialiser.**
+
+```typescript
+// ❌ Fait fuir les faux timers dans d'autres tests
+vi.useFakeTimers();
+
+// ✅ Toujours restaurer après
+afterEach(() => vi.useRealTimers());
+```
+
+---
+
+## Organiser votre Suite de Tests
+
+Un fichier de test doit vivre à côté du code qu'il teste. La co-localisation rend évident ce qui a et n'a pas été testé, et raccourcit la boucle de retour :
+
+```
+src/
+├── components/
+│   ├── LoginForm.tsx
+│   ├── LoginForm.test.tsx         ← test d'intégration
+│   ├── LoginForm.a11y.test.tsx    ← test d'accessibilité
+│   └── LoginForm.stories.tsx      ← stories Storybook (optionnel)
+├── hooks/
+│   ├── useCounter.ts
+│   └── useCounter.test.ts         ← test unitaire
+├── lib/
+│   ├── price.ts
+│   └── price.test.ts              ← test unitaire
+└── test/
+    ├── setup.ts                   ← configuration globale des tests
+    └── mocks/
+        ├── handlers.ts            ← handlers MSW par défaut
+        └── server.ts              ← configuration du serveur MSW
+
+e2e/
+├── auth.spec.ts
+├── checkout.spec.ts
+└── onboarding.spec.ts
+```
+
+---
+
+## Exécuter les Tests en CI
+
+Les tests ne valent que ce qu'ils sont exécutés de façon consistante. Chaque PR doit exécuter la suite complète avant que quoi que ce soit ne soit fusionné.
+
+```yaml title=".github/workflows/test.yml"
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit-and-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+      - run: npm ci
+      - run: npm run test -- --coverage
+      - name: Téléverser la couverture
+        uses: codecov/codecov-action@v4
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+      - run: npm ci
+      - run: npx playwright install --with-deps
+      - run: npm run build
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+```
+
+Séparez les tests unitaires/intégration et E2E en jobs distincts pour qu'ils s'exécutent en parallèle et pour qu'un test E2E défaillant ne bloque pas le retour rapide des tests unitaires.
+
+---
+
+## Conclusion
+
+Une bonne suite de tests n'est pas un recueil du maximum de tests que vous pouvez écrire — c'est un investissement délibéré dans les scénarios qui comptent. Commencez par l'essentiel :
+
+1. **Tests unitaires** pour vos fonctions pures et hooks personnalisés
+2. **Tests d'intégration** pour vos composants les plus utilisés et les flux critiques, avec MSW gérant le réseau
+3. **Tests d'accessibilité** sur chaque formulaire et composant interactif
+4. **Une poignée de tests E2E** pour les flux dont une application cassée ferait fuir les utilisateurs
+
+Écrivez des tests qui survivent aux refactorisations, qui assertent sur ce que les utilisateurs vivent, et qui échouent clairement et bruyamment quand quelque chose de réel casse. Avec le temps, cette suite devient une documentation vivante — une spécification exécutable de la façon dont votre application est censée se comporter — et la confiance qu'elle vous donne est ce qui vous permet de livrer des changements un vendredi sans ce nœud familier dans l'estomac.
+
+---
+
+_Vous avez un pattern de test qui a sauvé votre équipe d'une vilaine régression ? J'adorerais en entendre parler._

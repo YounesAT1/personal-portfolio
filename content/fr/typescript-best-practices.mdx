@@ -1,0 +1,314 @@
+---
+title: "Bonnes Pratiques TypeScript pour un Code Propre et Maintenable"
+publishedAt: "2025-12-08"
+updatedAt: "2024-12-08"
+author: "AIT-TALB YOUNES"
+summary: "Une plongée dans les patterns TypeScript, les techniques au niveau des types et les habitudes architecturales qui rendent les bases de code plus robustes, plus lisibles et agréables à maintenir à grande échelle."
+image: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&h=192&fit=crop"
+---
+
+# Bonnes Pratiques TypeScript pour un Code Propre et Maintenable
+
+TypeScript brille quand il vous aide à modéliser la réalité — pas quand il vous force à vous battre contre les types toute la journée. La différence entre une base de code qui _semble_ typée et une qui l'est _vraiment_ se résume souvent à une poignée d'habitudes délibérées appliquées de manière cohérente. Quelques petits réglages par défaut peuvent rendre une base de code <mark>plus sereine, plus sûre et plus facile à refactoriser</mark>.
+
+Cet article est un recueil des patterns et principes auxquels je reviens constamment, que je démarre un projet from scratch ou que je reprenne un projet hérité.
+
+<MediaContainer
+  src="https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1200&fit=crop"
+  alt="Code TypeScript à l'écran"
+/>
+
+---
+
+## 1. Activez le Mode Strict — et Assumez-le
+
+Le changement à plus fort levier que vous puissiez apporter à n'importe quel projet TypeScript est d'activer `strict: true` dans votre `tsconfig.json`. Ce n'est pas qu'un simple flag — c'est un umbrella qui active toute une famille de vérifications :
+
+```json
+// tsconfig.json
+{
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true
+  }
+}
+```
+
+`noUncheckedIndexedAccess` est particulièrement sous-estimé. Sans lui, TypeScript vous laisse écrire `arr[0].name` sans se plaindre — même si le tableau pourrait être vide. Avec lui activé, `arr[0]` est typé comme `T | undefined`, vous forçant à gérer correctement le cas vide.
+
+Activez la rigueur tôt et corrigez les zones dangereuses **une bonne fois pour toutes**. Reporter cela revient à hériter d'une montagne d'erreurs de type plus tard.
+
+---
+
+## 2. Préférez les Types Lisibles aux Types Astucieux
+
+TypeScript dispose d'un système de types puissant. Les types conditionnels, les types mappés, `infer` — ils sont tous genuinement utiles. Mais il est tentant d'écrire des types qui impressionnent plutôt que des types qui clarifient.
+
+**Astucieux — mais pénible à lire :**
+
+```ts
+type DeepPartial<T> = T extends object
+  ? { [P in keyof T]?: DeepPartial<T[P]> }
+  : T;
+```
+
+**Mieux — quand on peut se le permettre :**
+
+```ts
+// Donnez à la forme un nom qui communique l'intention
+type UserDraft = {
+  name?: string;
+  email?: string;
+  role?: "admin" | "viewer";
+};
+```
+
+L'objectif est qu'un coéquipier (ou vous dans le futur) puisse lire une définition de type et comprendre immédiatement ce qu'elle représente. S'il doit mentalement exécuter un algorithme au niveau des types pour le comprendre, le type est trop astucieux.
+
+> **Règle empirique :** Si vous ne pouvez pas expliquer un type en une phrase, il a probablement besoin d'un nom — ou d'être simplifié.
+
+---
+
+## 3. Utilisez les Unions pour « Un parmi plusieurs », les Interfaces pour « La forme de ceci »
+
+C'est l'un des modèles mentaux les plus pratiques dans TypeScript.
+
+**Les unions** sont pour les valeurs qui peuvent être l'une de plusieurs choses distinctes :
+
+```ts
+type Status = "idle" | "loading" | "success" | "error";
+
+type ApiResponse<T> =
+  | { status: "success"; data: T }
+  | { status: "error"; message: string }
+  | { status: "loading" };
+```
+
+**Les interfaces** servent à décrire la forme d'un objet — surtout quand cette forme pourrait être étendue ou implémentée :
+
+```ts
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: "admin" | "viewer";
+}
+
+interface AdminUser extends User {
+  role: "admin";
+  permissions: string[];
+}
+```
+
+La combinaison des deux est là où TypeScript devient vraiment puissant. Une union discriminante d'interfaces vous permet de réduire les types en toute sécurité dans n'importe quelle branche :
+
+```ts
+type AuthState =
+  | { kind: "unauthenticated" }
+  | { kind: "authenticating" }
+  | { kind: "authenticated"; user: User };
+
+function greet(state: AuthState) {
+  if (state.kind === "authenticated") {
+    // TypeScript sait que `state.user` existe ici
+    return `Bonjour, ${state.user.name}`;
+  }
+  return "Veuillez vous connecter.";
+}
+```
+
+---
+
+## 4. N'Utilisez Jamais `any` comme Raccourci
+
+`any` est la trappe d'évacuation qui transforme TypeScript en JavaScript — silencieusement. Quand vous atteignez pour `any`, vous n'optez pas seulement hors de la vérification des types en un seul endroit ; vous créez un trou qui peut se propager.
+
+```ts
+// ❌ Cela annule tout l'intérêt
+function processData(data: any) {
+  return data.value.toUpperCase(); // TypeScript ne détectera pas si data.value est undefined
+}
+
+// ✅ Utilisez `unknown` et réduisez-le vous-même
+function processData(data: unknown) {
+  if (
+    typeof data === "object" &&
+    data !== null &&
+    "value" in data &&
+    typeof (data as { value: unknown }).value === "string"
+  ) {
+    return (data as { value: string }).value.toUpperCase();
+  }
+  throw new Error("Forme de données inattendue");
+}
+```
+
+`unknown` vous force à prouver ce que sont les données avant de les utiliser. `any` vous fait confiance sans vérification. Dans une base de code en production, cette confiance est ~~une dette future~~ toujours éventuellement réclamée.
+
+Si vous traitez des réponses d'API externes, utilisez une bibliothèque de validation comme **Zod** ou **Valibot** pour les parser et les typer à la frontière :
+
+```ts
+import { z } from "zod";
+
+const UserSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string().email(),
+});
+
+type User = z.infer<typeof UserSchema>;
+
+const user = UserSchema.parse(rawApiResponse); // lève une erreur si invalide, retourne un User typé
+```
+
+---
+
+## 5. Un Pattern à Mémoriser : le Type `Result`
+
+La gestion des erreurs en TypeScript est délicate. `try/catch` n'est pas typé — TypeScript n'a aucun moyen de savoir ce que contient `catch (e)`. Lancer des erreurs comme flux de contrôle rend aussi les fonctions plus difficiles à composer.
+
+Un meilleur pattern : encoder le succès et l'échec dans le type de retour lui-même.
+
+```ts
+type Result<T, E = string> = { ok: true; value: T } | { ok: false; error: E };
+
+export function parseNumber(input: string): Result<number> {
+  const n = Number(input);
+  return Number.isFinite(n)
+    ? { ok: true, value: n }
+    : { ok: false, error: `"${input}" n'est pas un nombre valide` };
+}
+```
+
+Au site d'appel, TypeScript vous force à gérer les deux branches :
+
+```ts
+const result = parseNumber(userInput);
+
+if (result.ok) {
+  console.log("Parsé :", result.value); // `value` est un number ici
+} else {
+  console.error("Erreur :", result.error); // `error` est une string ici
+}
+```
+
+Pas de `try/catch`, pas de surprises. La signature de la fonction est honnête sur le fait qu'elle peut échouer. Ce pattern s'adapte parfaitement aux opérations asynchrones également :
+
+```ts
+async function fetchUser(id: string): Promise<Result<User>> {
+  try {
+    const res = await fetch(`/api/users/${id}`);
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    const data = UserSchema.parse(await res.json());
+    return { ok: true, value: data };
+  } catch (e) {
+    return { ok: false, error: "Erreur réseau ou de parsing" };
+  }
+}
+```
+
+---
+
+## 6. Utilisez `satisfies` pour les Objets de Configuration
+
+Introduit dans TypeScript 4.9, l'opérateur `satisfies` est l'une des additions les plus utiles pour le code en production. Il vous permet de valider qu'une valeur correspond à un type sans élargir le type inféré depuis le littéral.
+
+```ts
+type Route = {
+  path: string;
+  label: string;
+  icon?: string;
+};
+
+// Sans `satisfies` — TypeScript infère `navItems` comme `Route[]`
+// et vous perdez les types littéraux
+const navItems: Route[] = [
+  { path: "/accueil", label: "Accueil" },
+  { path: "/a-propos", label: "À propos" },
+];
+
+// Avec `satisfies` — le type est vérifié, mais les types littéraux sont préservés
+const navItems = [
+  { path: "/accueil", label: "Accueil" },
+  { path: "/a-propos", label: "À propos" },
+] satisfies Route[];
+
+// Maintenant `navItems[0].path` est `string`, mais la forme est toujours validée
+```
+
+C'est particulièrement utile pour les objets de configuration, les tokens de thème et les définitions de routes où vous voulez à la fois la sécurité et l'autocomplétion sans perdre la précision.
+
+---
+
+## 7. Gardez les Signatures de Fonctions Honnêtes
+
+La signature d'une fonction est son contrat. Elle doit vous dire ce qui entre, ce qui sort, et implicitement — ce qui peut mal tourner.
+
+```ts
+// ❌ Signature mensongère — retourne `undefined` en cas d'échec mais le type dit `User`
+async function getUser(id: string): Promise<User> {
+  const user = await db.find(id);
+  return user; // pourrait être undefined !
+}
+
+// ✅ Signature honnête
+async function getUser(id: string): Promise<User | null> {
+  return db.find(id) ?? null;
+}
+
+// ✅ Encore mieux — combiner avec Result
+async function getUser(id: string): Promise<Result<User>> {
+  const user = await db.find(id);
+  if (!user) return { ok: false, error: `Utilisateur ${id} introuvable` };
+  return { ok: true, value: user };
+}
+```
+
+Quand les signatures sont honnêtes, la vérification d'exhaustivité de TypeScript travaille pour vous. Vous n'oublierez pas de gérer `null` parce que le compilateur ne vous le permettra pas.
+
+---
+
+## 8. Exploitez les Types Littéraux de Template pour les Patterns de Chaînes
+
+Les types littéraux de template de TypeScript vous permettent d'exprimer des patterns de chaînes au niveau du type — parfait pour les noms d'événements, les noms de classes CSS, les routes API et bien plus.
+
+```ts
+type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+type ApiVersion = "v1" | "v2";
+type ApiRoute = `/${ApiVersion}/${string}`;
+
+type EventName<T extends string> = `on${Capitalize<T>}`;
+type MouseEvents = EventName<"click" | "hover" | "focus">;
+// → "onClick" | "onHover" | "onFocus"
+```
+
+Combinés avec les types mappés, cela devient un outil puissant pour dériver automatiquement des types depuis une source unique de vérité :
+
+```ts
+const EVENTS = ["click", "hover", "focus"] as const;
+type AppEvents = {
+  [K in (typeof EVENTS)[number] as `on${Capitalize<K>}`]: (e: Event) => void;
+};
+// { onClick: ...; onHover: ...; onFocus: ... }
+```
+
+---
+
+## Conclusion
+
+Le meilleur code TypeScript se lit comme une bonne documentation : des noms clairs, des formes prévisibles, et des erreurs qui vous pointent vers la solution — pas dans la direction opposée. Vous n'avez pas besoin de maîtriser chaque recoin du système de types pour écrire un TypeScript excellent. Vous avez besoin d'intérioriser quelques principes et de les appliquer de manière cohérente.
+
+Pour récapituler :
+
+- **Activez le mode `strict`** et maintenez-le. La douleur à court terme en vaut la peine.
+- **Écrivez des types lisibles**, pas astucieux. Nommez vos types comme vous nommeriez vos fonctions.
+- **Utilisez unions et interfaces ensemble** — les unions discriminantes sont l'une des plus grandes forces de TypeScript.
+- **Traitez `any` comme dernier recours**, pas comme premier outil. Atteignez pour `unknown` et réduisez explicitement.
+- **Modélisez l'échec dans les types de retour** avec le pattern `Result`. Les fonctions qui peuvent échouer doivent le dire.
+- **Utilisez `satisfies`** pour valider les formes sans perdre la précision littérale.
+- **Gardez les signatures honnêtes** — le compilateur est de votre côté quand vous l'êtes.
+
+TypeScript est un outil pour communiquer l'intention — au compilateur, à vos coéquipiers et à vous-même dans le futur. Plus vos types sont honnêtes, plus le compilateur peut faire pour vous.

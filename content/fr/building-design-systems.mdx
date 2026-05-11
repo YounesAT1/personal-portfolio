@@ -1,0 +1,788 @@
+---
+title: "Construire des Design Systems évolutifs avec React et Tailwind"
+publishedAt: "2025-12-01"
+updatedAt: "2024-12-01"
+author: "YOUNES AIT-TALB"
+summary: "Un guide complet pour créer des design systems maintenables qui évoluent avec votre équipe et votre produit — des tokens de design aux composants primitifs, en passant par la documentation, le versionnage et l'adoption en équipe."
+image: "https://images.unsplash.com/photo-1558655146-9f40138edfeb?w=800&h=192&fit=crop"
+---
+
+# Construire des Design Systems évolutifs avec React et Tailwind
+
+Les design systems font partie de ces choses qui semblent optionnelles — jusqu'à ce qu'on ait vécu assez longtemps sans pour en ressentir la douleur. Au début, on copie un bouton d'une page à une autre. Puis un troisième bouton apparaît, légèrement différent. Puis un quatrième. Six mois plus tard, votre base de code compte douze variantes de boutons, aucune cohérente, toutes légèrement cassées de manières différentes. Ça vous parle ?
+
+Un design system bien construit élimine ce chaos. Ce n'est pas simplement une bibliothèque de composants — c'est un **langage partagé** entre designers et développeurs. Un contrat qui dit : _voilà à quoi les choses ressemblent, voilà comment elles se comportent, et voilà pourquoi._
+
+Cet article est un guide pratique pour construire un design system évolutif avec React et Tailwind de zéro — couvrant les tokens de design, les composants primitifs, les patterns de composition, la documentation et le versionnage. Que vous partiez de rien ou que vous démêliez un existant chaotique, ce sont les patterns sur lesquels parier.
+
+---
+
+## Pourquoi les Design Systems comptent (au-delà de l'évident)
+
+L'argumentaire habituel pour un design system est : cohérence, développement plus rapide, réduction de la dette. Tout cela est vrai. Mais la valeur réelle va plus loin.
+
+**La cohérence** ne se limite pas à donner un aspect soigné à votre produit. Elle réduit la charge cognitive des utilisateurs. Quand les boutons ont toujours le même aspect et le même comportement, les utilisateurs cessent de penser à l'interface et commencent à penser à la tâche. C'est l'objectif.
+
+**Le développement plus rapide** est un bénéfice cumulatif. Le premier composant que vous construisez prend trois fois plus de temps parce que vous établissez des patterns. Le dixième prend moitié moins de temps. Au cinquantième, votre équipe livre des fonctionnalités complètes en quelques heures parce que tout ce dont elle a besoin existe déjà et est documenté.
+
+**Une meilleure collaboration designer-développeur** est peut-être le bénéfice le plus sous-estimé. Quand les deux disciplines partagent un vocabulaire de tokens — « utilise `primary-500` » au lieu de « utilise cette couleur bleue, tu vois, la principale » — les boucles de retours se resserrent, et moins de choses tombent dans les cracks entre design et implémentation.
+
+**La réduction de la dette technique** est le jeu sur le long terme. Chaque `style={{ color: '#3b82f6' }}` que vous écrivez aujourd'hui est une dette. Retrouvez cette valeur hexadécimale dans 200 fichiers quand la couleur de marque change. Un système basé sur des tokens signifie mettre à jour une valeur et voir le changement se propager partout, instantanément.
+
+La vraie question n'est pas de savoir _si_ vous devez construire un design system — c'est _quand commencer_.
+
+---
+
+## Couche 1 : Les tokens de design — Le fondement de tout
+
+Avant d'écrire le moindre composant, établissez vos tokens de design. Les tokens sont les valeurs atomiques et nommées qui pilotent l'ensemble de votre langage visuel : couleurs, espacements, typographie, ombres, rayons de bordure et durées d'animation. Ils sont la source de vérité.
+
+L'idée clé est que les tokens ont **deux couches** : les valeurs brutes et les alias sémantiques.
+
+```typescript title="tokens.ts"
+// Couche 1 : Palette brute — l'ensemble complet des valeurs possibles
+export const palette = {
+  blue: {
+    50: "#eff6ff",
+    100: "#dbeafe",
+    200: "#bfdbfe",
+    300: "#93c5fd",
+    400: "#60a5fa",
+    500: "#3b82f6",
+    600: "#2563eb",
+    700: "#1d4ed8",
+    800: "#1e40af",
+    900: "#1e3a8a",
+  },
+  neutral: {
+    0: "#ffffff",
+    50: "#fafafa",
+    100: "#f5f5f5",
+    200: "#e5e5e5",
+    300: "#d4d4d4",
+    400: "#a3a3a3",
+    500: "#737373",
+    600: "#525252",
+    700: "#404040",
+    800: "#262626",
+    900: "#171717",
+  },
+  red: {
+    50: "#fef2f2",
+    500: "#ef4444",
+    700: "#b91c1c",
+  },
+  green: {
+    50: "#f0fdf4",
+    500: "#22c55e",
+    700: "#15803d",
+  },
+} as const;
+
+// Couche 2 : Tokens sémantiques — nommés par usage, pas par valeur
+export const tokens = {
+  colors: {
+    // Marque
+    primary: palette.blue[500],
+    primaryHover: palette.blue[600],
+    primarySubtle: palette.blue[50],
+
+    // Feedback
+    danger: palette.red[500],
+    dangerSubtle: palette.red[50],
+    success: palette.green[500],
+    successSubtle: palette.green[50],
+
+    // Surface neutre
+    background: palette.neutral[0],
+    surface: palette.neutral[50],
+    border: palette.neutral[200],
+    muted: palette.neutral[400],
+    text: palette.neutral[900],
+    textSecondary: palette.neutral[500],
+  },
+  spacing: {
+    "1": "0.25rem",
+    "2": "0.5rem",
+    "3": "0.75rem",
+    "4": "1rem",
+    "6": "1.5rem",
+    "8": "2rem",
+    "12": "3rem",
+    "16": "4rem",
+  },
+  radii: {
+    sm: "0.25rem",
+    md: "0.5rem",
+    lg: "1rem",
+    xl: "1.5rem",
+    full: "9999px",
+  },
+  typography: {
+    fontSans: '"Inter", system-ui, sans-serif',
+    fontMono: '"JetBrains Mono", "Fira Code", monospace',
+    size: {
+      xs: "0.75rem",
+      sm: "0.875rem",
+      base: "1rem",
+      lg: "1.125rem",
+      xl: "1.25rem",
+      "2xl": "1.5rem",
+      "3xl": "1.875rem",
+    },
+    weight: {
+      normal: "400",
+      medium: "500",
+      semibold: "600",
+      bold: "700",
+    },
+    leading: {
+      tight: "1.25",
+      normal: "1.5",
+      loose: "1.75",
+    },
+  },
+  shadows: {
+    sm: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+    md: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+    lg: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+  },
+} as const;
+```
+
+Ensuite, reliez ces tokens à votre `tailwind.config.ts` pour que les classes Tailwind restent synchronisées avec vos définitions de tokens :
+
+```typescript title="tailwind.config.ts"
+import { tokens } from "./tokens";
+
+export default {
+  content: ["./src/**/*.{ts,tsx}"],
+  theme: {
+    extend: {
+      colors: {
+        primary: tokens.colors.primary,
+        danger: tokens.colors.danger,
+        success: tokens.colors.success,
+        background: tokens.colors.background,
+        surface: tokens.colors.surface,
+        border: tokens.colors.border,
+        muted: tokens.colors.muted,
+        text: tokens.colors.text,
+        "text-secondary": tokens.colors.textSecondary,
+      },
+      spacing: tokens.spacing,
+      borderRadius: tokens.radii,
+      boxShadow: tokens.shadows,
+      fontFamily: {
+        sans: [tokens.typography.fontSans],
+        mono: [tokens.typography.fontMono],
+      },
+    },
+  },
+} satisfies Config;
+```
+
+Avec cette configuration, vous écrivez `bg-primary` au lieu de `bg-blue-500`, et si votre couleur primaire change un jour, vous mettez à jour **une seule valeur** dans `tokens.ts` et tout le produit se met à jour.
+
+---
+
+## Couche 2 : Les composants primitifs — Les briques de base
+
+Les primitives sont les composants UI atomiques : `Button`, `Input`, `Badge`, `Avatar`, `Text`, `Icon`. Ils acceptent des variantes, gèrent les cas limites et encapsulent les problématiques d'accessibilité pour que vous n'ayez plus jamais à y penser.
+
+Le meilleur outil pour construire des composants pilotés par des variantes dans l'écosystème Tailwind est **`class-variance-authority` (CVA)**. Il vous offre une API propre et typée pour mapper des props à des combinaisons de classes.
+
+### Button
+
+```tsx title="components/ui/Button.tsx"
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
+
+const buttonVariants = cva(
+  // Styles de base — toujours appliqués
+  [
+    "inline-flex items-center justify-center gap-2",
+    "rounded-md font-medium text-sm",
+    "transition-colors duration-150",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+    "disabled:pointer-events-none disabled:opacity-50",
+  ],
+  {
+    variants: {
+      variant: {
+        primary:
+          "bg-primary text-white hover:bg-primary/90 active:bg-primary/80",
+        secondary:
+          "bg-surface text-text border border-border hover:bg-neutral-100",
+        ghost: "text-text hover:bg-surface hover:text-text",
+        danger: "bg-danger text-white hover:bg-danger/90 active:bg-danger/80",
+        link: "text-primary underline-offset-4 hover:underline p-0 h-auto",
+      },
+      size: {
+        xs: "h-7 px-2.5 text-xs",
+        sm: "h-8 px-3",
+        md: "h-10 px-4",
+        lg: "h-11 px-6 text-base",
+        xl: "h-12 px-8 text-lg",
+        icon: "h-10 w-10 p-0",
+      },
+    },
+    defaultVariants: {
+      variant: "primary",
+      size: "md",
+    },
+  },
+);
+
+interface ButtonProps
+  extends
+    React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
+  isLoading?: boolean;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
+}
+
+export function Button({
+  variant,
+  size,
+  className,
+  isLoading,
+  leftIcon,
+  rightIcon,
+  children,
+  disabled,
+  ...props
+}: ButtonProps) {
+  return (
+    <button
+      className={buttonVariants({ variant, size, className })}
+      disabled={disabled || isLoading}
+      aria-busy={isLoading}
+      {...props}
+    >
+      {isLoading ? (
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+      ) : leftIcon ? (
+        <span aria-hidden="true">{leftIcon}</span>
+      ) : null}
+      {children}
+      {rightIcon && !isLoading && <span aria-hidden="true">{rightIcon}</span>}
+    </button>
+  );
+}
+```
+
+Remarquez ce qui est intégré : les anneaux de focus pour l'accessibilité clavier, `aria-busy` pendant le chargement, des emplacements pour les icônes, et une matrice complète de variantes et de tailles. Construisez-le une fois, utilisez-le partout.
+
+### Input
+
+```tsx title="components/ui/Input.tsx"
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "@/lib/utils";
+
+const inputVariants = cva(
+  [
+    "flex w-full rounded-md border bg-background px-3 py-2",
+    "text-sm text-text placeholder:text-muted",
+    "transition-colors duration-150",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary",
+    "disabled:cursor-not-allowed disabled:opacity-50",
+  ],
+  {
+    variants: {
+      state: {
+        default: "border-border",
+        error: "border-danger focus-visible:ring-danger",
+        success: "border-success focus-visible:ring-success",
+      },
+    },
+    defaultVariants: { state: "default" },
+  },
+);
+
+interface InputProps
+  extends
+    React.InputHTMLAttributes<HTMLInputElement>,
+    VariantProps<typeof inputVariants> {
+  label?: string;
+  hint?: string;
+  error?: string;
+  leftElement?: React.ReactNode;
+  rightElement?: React.ReactNode;
+}
+
+export function Input({
+  label,
+  hint,
+  error,
+  state,
+  leftElement,
+  rightElement,
+  className,
+  id,
+  ...props
+}: InputProps) {
+  const inputId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
+  const resolvedState = error ? "error" : state;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {label && (
+        <label htmlFor={inputId} className="text-sm font-medium text-text">
+          {label}
+        </label>
+      )}
+      <div className="relative">
+        {leftElement && (
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted">
+            {leftElement}
+          </div>
+        )}
+        <input
+          id={inputId}
+          className={cn(
+            inputVariants({ state: resolvedState }),
+            leftElement && "pl-9",
+            rightElement && "pr-9",
+            className,
+          )}
+          aria-invalid={!!error}
+          aria-describedby={
+            error ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined
+          }
+          {...props}
+        />
+        {rightElement && (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted">
+            {rightElement}
+          </div>
+        )}
+      </div>
+      {error && (
+        <p id={`${inputId}-error`} className="text-xs text-danger" role="alert">
+          {error}
+        </p>
+      )}
+      {hint && !error && (
+        <p id={`${inputId}-hint`} className="text-xs text-text-secondary">
+          {hint}
+        </p>
+      )}
+    </div>
+  );
+}
+```
+
+### Badge
+
+```tsx title="components/ui/Badge.tsx"
+import { cva, type VariantProps } from "class-variance-authority";
+
+const badgeVariants = cva(
+  "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium",
+  {
+    variants: {
+      variant: {
+        default: "bg-surface text-text border border-border",
+        primary: "bg-primarySubtle text-primary",
+        success: "bg-successSubtle text-success",
+        danger: "bg-dangerSubtle text-danger",
+        outline: "border border-current bg-transparent",
+      },
+    },
+    defaultVariants: { variant: "default" },
+  },
+);
+
+interface BadgeProps
+  extends
+    React.HTMLAttributes<HTMLSpanElement>,
+    VariantProps<typeof badgeVariants> {
+  dot?: boolean;
+}
+
+export function Badge({
+  variant,
+  dot,
+  children,
+  className,
+  ...props
+}: BadgeProps) {
+  return (
+    <span className={badgeVariants({ variant, className })} {...props}>
+      {dot && (
+        <span
+          className="h-1.5 w-1.5 rounded-full bg-current"
+          aria-hidden="true"
+        />
+      )}
+      {children}
+    </span>
+  );
+}
+```
+
+---
+
+## Couche 3 : La composition — Construire des patterns à partir des primitives
+
+Une fois vos primitives en place, vous les composez en patterns de plus haut niveau. La règle clé ici est : **les patterns doivent orchestrer les primitives, pas les réimplémenter.**
+
+```typescript title="Les quatre niveaux d'un design system"
+// Niveau 1 — Tokens
+//   Couleurs, espacements, typographie, ombres
+//   « Les valeurs »
+
+// Niveau 2 — Primitives
+//   Button, Input, Badge, Avatar, Icon, Text
+//   « Les atomes »
+
+// Niveau 3 — Patterns
+//   Card, Modal, Dropdown, Toast, FormField, DataTable
+//   « Les molécules »
+
+// Niveau 4 — Templates
+//   PageHeader, Sidebar, AuthLayout, DashboardShell
+//   « Les organismes / structures de page »
+```
+
+Voici comment un pattern `Card` compose des préoccupations de niveau primitif :
+
+```tsx title="components/patterns/Card.tsx"
+import { cn } from "@/lib/utils";
+
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  as?: React.ElementType;
+  isHoverable?: boolean;
+  hasBorder?: boolean;
+}
+
+export function Card({
+  as: Tag = "div",
+  isHoverable,
+  hasBorder = true,
+  className,
+  children,
+  ...props
+}: CardProps) {
+  return (
+    <Tag
+      className={cn(
+        "rounded-lg bg-background p-6 shadow-sm",
+        hasBorder && "border border-border",
+        isHoverable && "cursor-pointer transition-shadow hover:shadow-md",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </Tag>
+  );
+}
+
+Card.Header = function CardHeader({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={cn("mb-4 flex items-center justify-between", className)}
+      {...props}
+    />
+  );
+};
+
+Card.Title = function CardTitle({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLHeadingElement>) {
+  return (
+    <h3
+      className={cn("text-lg font-semibold text-text", className)}
+      {...props}
+    />
+  );
+};
+
+Card.Body = function CardBody({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={cn("text-sm text-text-secondary", className)} {...props} />
+  );
+};
+
+Card.Footer = function CardFooter({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={cn(
+        "mt-4 flex items-center gap-2 border-t border-border pt-4",
+        className,
+      )}
+      {...props}
+    />
+  );
+};
+```
+
+L'utilisation se lit clairement :
+
+```tsx
+<Card isHoverable>
+  <Card.Header>
+    <Card.Title>Projet Alpha</Card.Title>
+    <Badge variant="success" dot>
+      Actif
+    </Badge>
+  </Card.Header>
+  <Card.Body>
+    Pipeline de déploiement configuré. Dernier déploiement il y a 2 heures.
+  </Card.Body>
+  <Card.Footer>
+    <Button variant="ghost" size="sm">
+      Voir les détails
+    </Button>
+    <Button size="sm">Déployer maintenant</Button>
+  </Card.Footer>
+</Card>
+```
+
+Ce pattern de composant composé maintient l'API ergonomique sans forcer les consommateurs à gérer la mise en page eux-mêmes.
+
+---
+
+## L'accessibilité n'est pas une réflexion après coup
+
+Un design system qui livre des composants inaccessibles n'est pas un design system — c'est une dette technique qui affecte de vrais utilisateurs. Intégrez l'accessibilité dès le premier jour.
+
+**Les non-négociables :**
+
+- Chaque élément interactif (`Button`, `Input`, `Checkbox`) doit être accessible et opérable au clavier
+- Les anneaux de focus doivent être visibles et stylisés — jamais simplement `outline: none`
+- Le contraste des couleurs doit respecter le niveau AA des WCAG (4.5:1 pour le texte normal, 3:1 pour le grand texte)
+- Les champs de formulaire doivent être associés à leurs labels via `htmlFor` / `id`
+- Les messages d'erreur doivent être liés à leurs champs via `aria-describedby`
+- Les icônes utilisées comme boutons doivent avoir un `aria-label` ou un texte masqué associé
+- Les modales doivent piéger le focus et le restaurer à la fermeture
+- Les messages de statut (toasts, alertes) doivent utiliser `role="alert"` ou `role="status"`
+
+```tsx title="Bouton icône accessible"
+// ❌ Mauvais — le lecteur d'écran ne voit rien de significatif
+<button onClick={handleClose}>
+  <X className="h-4 w-4" />
+</button>
+
+// ✅ Bon — le lecteur d'écran annonce "Fermer la boîte de dialogue"
+<button onClick={handleClose} aria-label="Fermer la boîte de dialogue">
+  <X className="h-4 w-4" aria-hidden="true" />
+</button>
+```
+
+Une règle rapide : en cas de doute, faites passer vos composants par un lecteur d'écran (VoiceOver sur Mac, NVDA sur Windows) avant de fusionner. Les outils automatisés comme `axe-core` détectent environ 30 % des problèmes — le reste nécessite des tests manuels.
+
+---
+
+## L'utilitaire `cn` — Petit mais puissant
+
+Vous verrez `cn()` dans tous les exemples ci-dessus. C'est un petit utilitaire qui fusionne correctement les classes Tailwind en résolvant les conflits (par exemple, `px-4` et `px-6` doivent se résoudre en `px-6`, pas les deux) :
+
+```typescript title="lib/utils.ts"
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+```
+
+Ce pattern est omniprésent dans l'écosystème Tailwind (utilisé par shadcn/ui, Radix, etc.) pour de bonnes raisons. Exposez toujours une prop `className` sur vos composants afin que les consommateurs puissent passer des surcharges, et faites toujours passer ces surcharges par `cn()`.
+
+---
+
+## La documentation est le produit
+
+> _« Un design system sans documentation n'est qu'une bibliothèque de composants. »_
+
+Les composants sans documentation sont mal utilisés. Ils sont copiés-collés. Ils engendrent des variantes qui divergent du spec. La documentation est la façon d'éviter cela — c'est le contrat vivant entre ceux qui construisent le système et ceux qui l'utilisent.
+
+Chaque composant doit avoir, au minimum :
+
+**1. Un exemple live et interactif** — pas une capture d'écran, un vrai composant rendu avec lequel l'utilisateur peut interagir (Storybook, Ladle ou Histoire sont excellents pour cela).
+
+**2. Une documentation des props** avec les types, les valeurs par défaut et les descriptions. Générez-la automatiquement depuis vos types TypeScript quand c'est possible.
+
+**3. Des consignes d'utilisation** — quand utiliser ce composant, quand _ne pas_ l'utiliser, et quoi utiliser à la place.
+
+**4. Des notes d'accessibilité** — comportement clavier, rôles ARIA, sortie du lecteur d'écran.
+
+**5. Des exemples à faire et à ne pas faire** — les comparaisons visuelles côte à côte valent mille mots.
+
+```mdx title="Exemple de documentation du Button"
+## Button
+
+Utilisez `Button` pour toutes les actions cliquables. Choisissez la variante
+en fonction de l'importance de l'action dans la hiérarchie de l'interface.
+
+### Quand l'utiliser
+
+- `primary` — L'appel à l'action principal d'une page. À utiliser avec parcimonie (un par vue).
+- `secondary` — Actions de support qui ne rivalisent pas avec le primaire.
+- `ghost` — Actions peu mises en avant, souvent dans les barres d'outils ou en ligne avec le contenu.
+- `danger` — Actions destructrices. Toujours accompagner d'une boîte de dialogue de confirmation.
+
+### Accessibilité
+
+- Les boutons sont accessibles au clavier par défaut.
+- Utilisez `aria-label` sur les boutons avec icône uniquement.
+- Désactivez le bouton et définissez `isLoading` pendant les opérations asynchrones.
+
+### À ne pas faire
+
+- N'utilisez pas un `Button` pour la navigation — utilisez un lien stylisé comme un bouton.
+- Ne placez pas plus de deux boutons côte à côte sans une hiérarchie claire.
+```
+
+Investissez dans un site de documentation dédié. Storybook reste la référence pour la documentation au niveau des composants. Pour les consignes d'utilisation, un site léger basé sur MDX (Nextra, Docusaurus) fonctionne bien.
+
+---
+
+## Tester votre Design System
+
+Votre design system est une infrastructure. L'infrastructure a besoin de tests.
+
+**Trois niveaux de tests importent :**
+
+**1. Tests unitaires** — le composant se rend-il ? Applique-t-il les bonnes classes de variantes ? Appelle-t-il les bons gestionnaires ?
+
+```typescript title="Button.test.tsx"
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { Button } from './Button';
+
+describe('Button', () => {
+  it('affiche correctement les enfants', () => {
+    render(<Button>Cliquer</Button>);
+    expect(screen.getByRole('button', { name: 'Cliquer' })).toBeInTheDocument();
+  });
+
+  it('affiche correctement l\'état de chargement', () => {
+    render(<Button isLoading>Envoyer</Button>);
+    const button = screen.getByRole('button');
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('applique la classe de variante danger', () => {
+    render(<Button variant="danger">Supprimer</Button>);
+    expect(screen.getByRole('button')).toHaveClass('bg-danger');
+  });
+});
+```
+
+**2. Tests de régression visuelle** — le composant _ressemble_-t-il à ce qu'il devrait après une modification ? Des outils comme Chromatic (basé sur Storybook) ou Percy prennent des captures d'écran de vos stories et signalent les différences visuelles sur chaque PR.
+
+**3. Tests d'accessibilité** — utilisez `jest-axe` pour détecter les violations d'accessibilité programmatiques :
+
+```typescript
+import { axe, toHaveNoViolations } from 'jest-axe';
+expect.extend(toHaveNoViolations);
+
+it('n\'a aucune violation d\'accessibilité', async () => {
+  const { container } = render(<Button>Envoyer</Button>);
+  const results = await axe(container);
+  expect(results).toHaveNoViolations();
+});
+```
+
+---
+
+## Versionnage et publication
+
+Votre design system doit être publié en tant que package npm privé afin que n'importe quel projet de votre organisation puisse le consommer comme dépendance.
+
+```json title="package.json"
+{
+  "name": "@votreentreprise/design-system",
+  "version": "2.1.0",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./tokens": {
+      "import": "./dist/tokens.mjs",
+      "require": "./dist/tokens.js",
+      "types": "./dist/tokens.d.ts"
+    }
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "tailwindcss": "^3.0.0"
+  },
+  "sideEffects": false
+}
+```
+
+Utilisez le **versionnage sémantique** de manière rigoureuse :
+
+| Incrément          | Quand l'utiliser                                                             | Exemple                                               |
+| ------------------ | ---------------------------------------------------------------------------- | ----------------------------------------------------- |
+| **Majeur** `3.0.0` | Changement cassant — prop supprimée, composant renommé, comportement modifié | Renommer `variant="default"` en `variant="secondary"` |
+| **Mineur** `2.2.0` | Nouvelle fonctionnalité, rétrocompatible                                     | Ajout d'une nouvelle taille `xl` au Button            |
+| **Patch** `2.1.1`  | Correction de bug, sans changement d'API                                     | Correction de l'anneau de focus invisible dans Safari |
+
+Automatisez les releases avec **Changesets** — il permet aux contributeurs de documenter leurs changements au fur et à mesure, puis les agrège en un CHANGELOG et incrémente correctement la version :
+
+```bash
+# Lors d'un changement, ajouter un changeset
+pnpm changeset
+
+# À la fusion sur main, la CI exécute :
+pnpm changeset version   # incrémente les versions, met à jour le CHANGELOG
+pnpm changeset publish   # publie sur npm
+```
+
+Maintenez un `CHANGELOG.md` public afin que les consommateurs sachent exactement ce qui a changé entre les versions et quelle migration est nécessaire.
+
+---
+
+## Adoption : Amener votre équipe à vraiment l'utiliser
+
+Construire le système représente la moitié du travail. L'autre moitié, c'est l'adoption.
+
+La raison la plus courante pour laquelle les design systems échouent n'est pas technique — elle est organisationnelle. Les équipes construisent leurs propres composants parce que le système n'a pas ce dont elles ont besoin, ou que la documentation est peu claire, ou que les composants sont trop rigides pour s'adapter. Voici ce qui fonctionne vraiment :
+
+**Faites-en le chemin de moindre résistance.** Si utiliser le design system est plus difficile qu'écrire du CSS personnalisé, les gens ne l'utiliseront pas. Investissez dans la DX : de bons types TypeScript, de bons messages d'erreur, de bonnes valeurs par défaut.
+
+**Livrez un template de démarrage.** Fournissez un template de projet pré-configuré avec votre design system, la configuration Tailwind et les tokens déjà en place. Réduire la friction d'installation est considérable.
+
+**Traitez les contributeurs comme des collaborateurs, pas des demandeurs.** Ouvrez le système pour que les équipes produit puissent contribuer de nouveaux composants. Définissez un guide de contribution avec des standards clairs. Revoyez les contributions rapidement.
+
+**Organisez des heures de permanence ou une sync design system.** Une courte réunion récurrente où les équipes peuvent poser des questions, demander des fonctionnalités et donner des retours crée une communauté autour du système plutôt qu'un mandat imposé d'en haut.
+
+**Mesurez l'adoption.** Suivez quels composants sont utilisés, où du CSS personnalisé est encore écrit, et quelles parties du système ont le plus d'issues ouvertes. Les données vous indiquent où investir ensuite.
+
+---
+
+## Conclusion
+
+Un design system n'est pas un projet ponctuel — c'est un produit vivant avec une équipe, une feuille de route et de vrais consommateurs. L'investissement initial est réel, mais le retour l'est aussi : moins d'incohérences de design, un développement de fonctionnalités plus rapide, et une base de code où le centième composant demande moins d'effort que le dixième.
+
+Commencez par les tokens. Construisez une poignée de primitives solides comme un roc. Documentez tout. Versionnez avec rigueur. Et par-dessus tout : traitez les personnes qui utilisent votre système comme vos utilisateurs, et concevez leur expérience de la même façon que vous le feriez pour n'importe quel utilisateur final.
+
+_Commencez petit, livrez souvent, documentez au fur et à mesure — et le système grandira pour devenir exactement ce dont votre équipe a besoin._
+
+---
+
+_Des questions sur les design systems ou envie de partager comment votre équipe s'y est prise ? N'hésitez pas à me contacter — je serais ravi de comparer nos approches._

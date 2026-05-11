@@ -15,40 +15,30 @@ export default function LanguageSwitcher() {
   const { language, setLanguage } = useLanguage();
   const pathname = usePathname();
 
-  const isBlogPage = pathname.startsWith("/blog");
   const countryCode = language === "en" ? "US" : "FR";
 
   const toggleLanguage = () => {
-    if (isBlogPage) return;
     setLanguage(language === "en" ? "fr" : "en");
   };
 
   return (
     <Tooltip>
       <TooltipTrigger>
-        <div
-          onClick={toggleLanguage}
-          className={isBlogPage ? "opacity-40 cursor-not-allowed" : ""}
-        >
+        <div onClick={toggleLanguage}>
           <DockIcon className="rounded-3xl size-full bg-background p-0 text-muted-foreground backdrop-blur-3xl border border-border transition-colors hover:text-foreground hover:bg-muted cursor-pointer">
             <ReactCountryFlag
               countryCode={countryCode}
               svg
               style={{ width: "1.5em", height: "1.5em" }}
               suppressHydrationWarning
+              
             />
           </DockIcon>
         </div>
       </TooltipTrigger>
 
       <TooltipContent side="top" sideOffset={8}>
-        <p>
-          {isBlogPage
-            ? "Not available on blog"
-            : language === "en"
-              ? "English"
-              : "Français"}
-        </p>
+        <p>{language === "en" ? "English" : "Français"}</p>
         <TooltipArrow />
       </TooltipContent>
     </Tooltip>
