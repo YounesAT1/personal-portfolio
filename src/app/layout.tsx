@@ -10,6 +10,7 @@ import { FlickeringGrid } from "@/components/magicui/flickering-grid";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { LanguageProvider } from "@/context/language-context";
 import { DATA } from "@/data/me";
+import ConsoleBranding from "./console-branding";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -97,6 +98,7 @@ export default function RootLayout({
           </ThemeProvider>
           <GoogleAnalytics gaId="G-RXWNY0BFHQ" />
         </LanguageProvider>
+        <ConsoleBranding />
       </body>
     </html>
   );
