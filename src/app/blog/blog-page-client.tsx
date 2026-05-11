@@ -11,7 +11,7 @@ import { normalizePage, paginate } from "@/lib/pagination";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 const BLUR_FADE_DELAY = 0.04;
 
 const BLOG_TEXT = {
@@ -62,9 +62,7 @@ export function BlogPageClient({ groups, pageParam }: BlogPageClientProps) {
             {text.postCount(sortedGroups.length)}
           </span>
         </h1>
-        <p className="text-sm text-muted-foreground mb-8">
-          {text.description}
-        </p>
+        <p className="text-sm text-muted-foreground mb-8">{text.description}</p>
       </BlurFade>
 
       {paginatedGroups.length > 0 ? (

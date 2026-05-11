@@ -1,4 +1,5 @@
 import { DATA } from "@/data/me";
+import Image from "next/image";
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
@@ -110,7 +111,7 @@ const styles = {
   },
 } as const;
 
-export default async function Image() {
+export default async function ImageComponent() {
   try {
     const fontData = await getFontData();
     const imageUrl = DATA.avatarUrl
@@ -123,7 +124,7 @@ export default async function Image() {
           <div style={styles.wrapper}>
             {imageUrl && (
               <div style={styles.imageSection}>
-                <img src={imageUrl} alt={DATA.name} style={styles.image} />
+                <Image src={imageUrl} alt={DATA.name} style={styles.image} />
               </div>
             )}
             <div style={styles.mainContainer}>

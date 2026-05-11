@@ -250,7 +250,7 @@ export default function ProductPage({ product }) {
     <div>
       <h1>{product.name}</h1> {/* doesn't need to be client-side */}
       <p>{product.description}</p> {/* doesn't need to be client-side */}
-      <img src={product.image} /> {/* doesn't need to be client-side */}
+      <Image src={product.image} /> {/* doesn't need to be client-side */}
       {/* Only this needs interactivity */}
       <button onClick={() => setCount((c) => c + 1)}>
         Add to Cart ({count})
@@ -272,7 +272,7 @@ export default async function ProductPage({ params }) {
     <div>
       <h1>{product.name}</h1>
       <p>{product.description}</p>
-      <img src={product.image} />
+      <Image src={product.image} />
       <AddToCartButton productId={product.id} /> {/* only this is client */}
     </div>
   );

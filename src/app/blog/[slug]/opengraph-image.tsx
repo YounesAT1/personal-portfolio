@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { allPosts } from "content-collections";
 import { resolveImageUrl } from "@/lib/utils";
 import { DATA } from "@/data/me";
+import Image from "next/image";
 
 export const runtime = "edge";
 
@@ -12,7 +13,11 @@ export const size = {
 
 export const contentType = "image/png";
 
-export default async function Image({ params }: { params: { slug: string } }) {
+export default async function ImageComponent({
+  params,
+}: {
+  params: { slug: string };
+}) {
   const post = allPosts.find(
     (p) => p._meta.path.replace(/\.mdx$/, "") === params.slug,
   );
@@ -63,7 +68,8 @@ export default async function Image({ params }: { params: { slug: string } }) {
       {/* Top */}
       <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
         {avatarUrl && (
-          <img
+          <Image
+            alt={DATA.name}
             src={avatarUrl}
             width={80}
             height={80}

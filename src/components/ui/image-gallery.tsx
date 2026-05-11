@@ -1,6 +1,7 @@
 import { type ComponentPropsWithoutRef } from "react";
 
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 interface ImageGalleryProps extends ComponentPropsWithoutRef<"div"> {
   images: string[];
@@ -37,10 +38,13 @@ const ImageGallery = ({ images, className, ...props }: ImageGalleryProps) => {
             getGridClass(index),
           )}
         >
-          <img
+          <Image
             src={src}
             alt={`Gallery image ${index + 1}`}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            width={600}
+            height={400}
+            unoptimized
           />
           <div className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
         </div>
