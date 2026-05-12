@@ -1,5 +1,4 @@
 import Navbar from "@/components/navbar";
-import ScrollToTop from "@/components/scroll-to-top";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -93,7 +92,6 @@ export default function RootLayout({
                 {children}
               </div>
               <Navbar />
-              <ScrollToTop />
             </TooltipProvider>
           </ThemeProvider>
           <GoogleAnalytics gaId="G-RXWNY0BFHQ" />
