@@ -47,12 +47,6 @@ export const FR_DATA = {
     email: "itsyounesaittalb@gmail.com",
     tel: "+212664344200",
     social: {
-      GitHub: {
-        name: "GitHub",
-        url: "https://github.com/YounesAT1",
-        icon: Icons.github,
-        navbar: true,
-      },
       LinkedIn: {
         name: "LinkedIn",
         url: "https://www.linkedin.com/in/at-1-younes/",
