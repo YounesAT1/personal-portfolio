@@ -14,6 +14,10 @@ import { Download } from "lucide-react";
 
 export default function Navbar() {
   const { data: DATA, language } = useLanguage();
+  const downloadLink =
+    language === "en"
+      ? "/files/AIT-TALB_YOUNES_EN.pdf"
+      : "/files/AIT-TALB_YOUNES_FR.pdf";
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-4 z-30">
       <Dock className="z-50 pointer-events-auto relative h-14 p-2 w-fit mx-auto flex gap-2 border bg-card/90 backdrop-blur-3xl shadow-[0_0_10px_3px] shadow-primary/5">
@@ -102,8 +106,8 @@ export default function Navbar() {
         <Tooltip>
           <TooltipTrigger asChild>
             <a
-              href="/files/AIT-TALB_YOUNES.pdf"
-              download="AIT-TALB_YOUNES.pdf"
+              href={downloadLink}
+              download={`AIT-TALB_YOUNES_${language === "en" ? "EN" : "FR"}.pdf`}
               target="_blank"
               rel="noopener noreferrer"
             >
