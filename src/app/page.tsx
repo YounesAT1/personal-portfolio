@@ -5,6 +5,7 @@ import ContactSection from "@/components/section/contact-section";
 import EducationSection from "@/components/section/education-section";
 import HeroSection from "@/components/section/hero-section";
 import LanguagesSection from "@/components/section/languages-section";
+import ProjectInsightsSection from "@/components/section/projects-insighits";
 import ProjectsSection from "@/components/section/projects-section";
 import SkillsSection from "@/components/section/skills-section";
 import WorkSection from "@/components/section/work-section";
@@ -24,6 +25,7 @@ export default function Page() {
       <BlurFade delay={BLUR_FADE_DELAY * 11}>
         <ProjectsSection />
       </BlurFade>
+      <ProjectInsightsSection />
       <BlurFade delay={BLUR_FADE_DELAY * 16}>
         <ContactSection />
       </BlurFade>
