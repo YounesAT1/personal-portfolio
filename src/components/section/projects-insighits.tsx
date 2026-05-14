@@ -19,7 +19,7 @@ export default function PerformanceSection() {
       : "Applications optimisées pour la performance, l’accessibilité et le SEO selon l’analyse Lighthouse.";
 
   return (
-    <section className="w-full py-16 flex flex-col items-center gap-10">
+    <section className="w-full max-w-3xl mx-auto py-16 flex flex-col items-center gap-10">
       <BlurFade delay={BLUR_FADE_DELAY * 4}>
         <SectionTitle>{sectionTitle}</SectionTitle>
       </BlurFade>
